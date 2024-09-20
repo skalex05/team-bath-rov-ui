@@ -8,6 +8,7 @@ path_dir = os.path.dirname(os.path.realpath(__file__))
 
 class Grapher(QWidget):
     def __init__(self, desired_monitor):
-        self.desired_monitor = desired_monitor  # When undocked, this window will be displayed on this monitor
         super().__init__()
+        self.desired_monitor = desired_monitor  # When undocked, this window will be displayed on this monitor
+
         uic.loadUi(f"{path_dir}\\grapher.ui", self)

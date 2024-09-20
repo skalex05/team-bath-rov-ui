@@ -1,16 +1,16 @@
 import sys
 import screeninfo
 
-from PyQt6.QtWidgets import QApplication, QTabWidget
+from PyQt6.QtWidgets import QApplication
 
 from pilot.pilot import Pilot
 from secondary_windows.copilot.copilot import Copilot
 from secondary_windows.grapher.grapher import Grapher
+from nav_bar.nav_widget import NavBar
+from dock.dock import Dock
 
 # Get all monitors connected to the computer
 monitors = screeninfo.get_monitors()
-for monitor in monitors:
-    print(monitor)
 
 app = QApplication(sys.argv)
 
@@ -30,22 +30,25 @@ pilot_window = Pilot(monitors[pilot_monitor])
 # This will by default store the copilot and grapher windows
 # These windows can be floated and re-docked when needed
 
-# Copilot is the primary docked window
-dock_monitor = monitors[copilot_monitor]
-dock = QTabWidget()
-dock.setGeometry(dock_monitor.x, dock_monitor.y, dock_monitor.width, dock_monitor.height)
+dock = Dock(monitors[copilot_monitor])
 
+pilot_window.nav = NavBar(pilot_window)
+pilot_window.nav.show()
+
+# Create secondary windows and add them to the dock
 grapher_window = Grapher(monitors[graph_monitor])
 copilot_window = Copilot(monitors[copilot_monitor])
+dock.addWidget(grapher_window)
+dock.addWidget(copilot_window)
 
-def on_tab_change(tab_i):
-    dock.setWindowTitle(dock.currentWidget().windowTitle())
+# Attach the navigation bars to these windows
 
-
-dock.currentChanged.connect(on_tab_change)
-
-dock.addTab(grapher_window, grapher_window.windowTitle())
-dock.addTab(copilot_window, copilot_window.windowTitle())
+grapher_window.nav = NavBar(grapher_window, dock)
+copilot_window.nav = NavBar(copilot_window, dock)
+grapher_window.nav.generate_layout()
+copilot_window.nav.generate_layout()
+grapher_window.nav.show()
+copilot_window.nav.show()
 
 dock.showMaximized()
 

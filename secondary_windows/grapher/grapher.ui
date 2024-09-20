@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Grapher</string>
   </property>
   <widget class="QWidget" name="centralwidget" native="true">
    <property name="geometry">
