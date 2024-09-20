@@ -1,3 +1,4 @@
+from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton
 from nav_bar.nav_window_button import NavWindowButton
 
@@ -16,26 +17,32 @@ class NavBar(QWidget):
         self.setLayout(self.layout)
 
     def generate_layout(self):
+        print("Generate Navbar", self.parent_window.windowTitle())
         if self.dock is None:
             return
         single = True
         if self.docked:
-            print(self.parent_window.windowTitle())
+            print("Is docked")
             for i in range(self.dock.count()):
                 window = self.dock.widget(i)
-                print(window.windowTitle(), window.nav.docked)
                 if window == self.parent_window or not window.nav.docked:
                     continue
                 single = False
+                print("Button added for", window.windowTitle())
                 switch_button = NavWindowButton(window, self)
                 switch_button.clicked.connect(switch_button.on_click)
                 self.layout.addWidget(switch_button)
 
         if not (single and self.docked):
+            print("dockable")
             self.dockable_widget = QPushButton("Undock" if self.docked else "Dock")
             self.dockable_widget.setMaximumWidth(80)
             self.dockable_widget.clicked.connect(lambda _: self.f_undock() if self.docked else self.f_dock())
             self.layout.addWidget(self.dockable_widget)
+
+        print(QRect(0, 0, 80*self.layout.count(), 30))
+
+        self.setGeometry(QRect(0, 0, 80*self.layout.count(), 30))
 
         self.setLayout(self.layout)
 
@@ -46,10 +53,10 @@ class NavBar(QWidget):
             i = layout.takeAt(0)
             w = i.widget()
             if w is not None:
+                print("removed old")
                 w.deleteLater()
             else:
                 self.clear_layout(i.layout())
-
 
     def f_dock(self):
         self.docked = True
@@ -63,12 +70,11 @@ class NavBar(QWidget):
         self.docked = False
         self.dock.removeWidget(self.parent_window)
         self.parent_window.setParent(None)
-        self.parent_window.setGeometry(self.parent_window.desired_monitor.x+100,
-                                       self.parent_window.desired_monitor.y+100,
+        self.parent_window.setGeometry(self.parent_window.desired_monitor.x + 100,
+                                       self.parent_window.desired_monitor.y + 100,
                                        self.parent_window.geometry().width(),
                                        self.parent_window.geometry().height())
         self.clear_layout()
         self.generate_layout()
 
         self.parent_window.show()
-

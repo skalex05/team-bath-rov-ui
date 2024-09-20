@@ -24,31 +24,40 @@ if len(monitors) > 1:
 if len(monitors) > 2:
     graph_monitor = 2
 
-pilot_window = Pilot(monitors[pilot_monitor])
-
 # Build the docked window
 # This will by default store the copilot and grapher windows
 # These windows can be floated and re-docked when needed
 
 dock = Dock(monitors[copilot_monitor])
 
-pilot_window.nav = NavBar(pilot_window)
-pilot_window.nav.show()
+# Create pilot window
+pilot_window = Pilot(monitors[pilot_monitor])
 
-# Create secondary windows and add them to the dock
+# Create secondary windows
 grapher_window = Grapher(monitors[graph_monitor])
 copilot_window = Copilot(monitors[copilot_monitor])
+
+# Add windows to the dock
+dock.addWidget(pilot_window)
 dock.addWidget(grapher_window)
 dock.addWidget(copilot_window)
 
-# Attach the navigation bars to these windows
+# Attach the navigation bars to these windows with correct options
 
+pilot_window.nav = NavBar(pilot_window, dock)
 grapher_window.nav = NavBar(grapher_window, dock)
 copilot_window.nav = NavBar(copilot_window, dock)
+
+pilot_window.nav.generate_layout()
 grapher_window.nav.generate_layout()
 copilot_window.nav.generate_layout()
-grapher_window.nav.show()
-copilot_window.nav.show()
+
+if len(monitors) > 1:
+    pilot_window.nav.f_undock()
+
+if len(monitors) > 2:
+    grapher_window.nav.f_undock()
+
 
 dock.showMaximized()
 

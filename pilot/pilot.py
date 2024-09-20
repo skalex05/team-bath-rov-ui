@@ -14,6 +14,4 @@ class Pilot(QMainWindow):
         uic.loadUi(f"{path_dir}\\pilot.ui", self)
         self.desired_monitor = monitor
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-
-        self.showMaximized()
+        #self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
