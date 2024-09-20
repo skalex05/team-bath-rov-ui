@@ -61,4 +61,4 @@ if len(monitors) > 2:
 
 dock.showMaximized()
 
-app.exec()
+sys.exit(app.exec())

@@ -2,16 +2,18 @@ import os
 
 from PyQt6 import uic
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtWidgets import QFrame
 from screeninfo.common import Monitor
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-class Pilot(QMainWindow):
+class Pilot(QFrame):
     def __init__(self, monitor: Monitor):
         super().__init__()
-        uic.loadUi(f"{path_dir}\\pilot.ui", self)
         self.desired_monitor = monitor
+
+        self.setFixedSize(1920, 1080)
+        uic.loadUi(f"{path_dir}\\pilot.ui", self)
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
-        #self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
