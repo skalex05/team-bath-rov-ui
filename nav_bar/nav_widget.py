@@ -38,7 +38,7 @@ class NavBar(QWidget):
                 switch_button.clicked.connect(switch_button.on_click)
                 self.layout.addWidget(switch_button)
 
-        if not (single and self.docked):
+        if not (single and self.docked) and self.dock.dockable:
             self.dockable_widget = QPushButton("Undock" if self.docked else "Dock")
             self.dockable_widget.setMaximumWidth(80)
             self.dockable_widget.clicked.connect(lambda _: self.f_undock() if self.docked else self.f_dock())
@@ -95,8 +95,12 @@ class NavBar(QWidget):
     def mousePressEvent(self, event):
         self.oldPos = event.globalPosition()
 
+    def mouseReleaseEvent(self, event):
+        self.top_window.showMaximized()
+
     def mouseMoveEvent(self, event):
         delta = event.globalPosition() - self.oldPos
-        self.top_window.move(QPoint(int(self.x() + delta.x()), int(self.y() + delta.y())))
+        self.top_window.move(QPoint(int(self.top_window.x() + delta.x()), int(self.top_window.y() + delta.y())))
+        print(QPoint(int(self.x() + delta.x()), int(self.y() + delta.y())))
         self.oldPos = event.globalPosition()
     

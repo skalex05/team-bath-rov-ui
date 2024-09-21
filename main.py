@@ -3,10 +3,10 @@ import screeninfo
 
 from app import App
 from pilot.pilot import Pilot
-from secondary_windows.copilot.copilot import Copilot
-from secondary_windows.grapher.grapher import Grapher
+from copilot.copilot import Copilot
+from grapher.grapher import Grapher
 from nav_bar.nav_widget import NavBar
-from dock.dock import Dock
+from dock import Dock
 
 # Get all monitors connected to the computer
 monitors = screeninfo.get_monitors()
@@ -27,7 +27,7 @@ if len(monitors) > 2:
 # This will by default store the copilot and grapher windows
 # These windows can be floated and re-docked when needed
 
-dock = Dock(monitors[copilot_monitor])
+dock = Dock(monitors[copilot_monitor], len(monitors))
 
 # Create pilot window
 pilot_window = Pilot(monitors[pilot_monitor])

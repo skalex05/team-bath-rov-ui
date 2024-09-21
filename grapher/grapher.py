@@ -20,5 +20,6 @@ class Grapher(QFrame):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
     def update_data(self, data: DataInterface):
-        print(data.ambient_temperature)
+        pass
+        #print(data.ambient_temperature)
 
