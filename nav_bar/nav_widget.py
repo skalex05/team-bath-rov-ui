@@ -6,12 +6,13 @@ from nav_bar.nav_window_button import NavWindowButton
 
 
 class NavBar(QWidget):
-    def __init__(self, parent_window, dock=None, widget_width=80):
+    def __init__(self, parent_window, app, dock, widget_width=80):
         super().__init__(parent_window)
         self.buttons = None
         self.dockable_widget = None
         self.docked = True
         self.dock = dock
+        self.app = app
 
         self.parent_window = parent_window
         self.top_window = dock
@@ -45,7 +46,7 @@ class NavBar(QWidget):
 
         self.dockable_widget = QPushButton("Close")
         self.dockable_widget.setMaximumWidth(80)
-        self.dockable_widget.clicked.connect(sys.exit)
+        self.dockable_widget.clicked.connect(self.app.close)
         self.layout.addWidget(self.dockable_widget)
 
         self.buttons = QWidget(self)

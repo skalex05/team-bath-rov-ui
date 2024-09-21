@@ -1,8 +1,7 @@
 import sys
 import screeninfo
 
-from PyQt6.QtWidgets import QApplication
-
+from app import App
 from pilot.pilot import Pilot
 from secondary_windows.copilot.copilot import Copilot
 from secondary_windows.grapher.grapher import Grapher
@@ -12,7 +11,7 @@ from dock.dock import Dock
 # Get all monitors connected to the computer
 monitors = screeninfo.get_monitors()
 
-app = QApplication(sys.argv)
+app = App(sys.argv)
 
 # Assign each window to its own monitor if available
 pilot_monitor = 0
@@ -44,9 +43,9 @@ dock.addWidget(copilot_window)
 
 # Attach the navigation bars to these windows with correct options
 
-pilot_window.nav = NavBar(pilot_window, dock)
-grapher_window.nav = NavBar(grapher_window, dock)
-copilot_window.nav = NavBar(copilot_window, dock)
+pilot_window.nav = NavBar(pilot_window, app, dock)
+grapher_window.nav = NavBar(grapher_window, app, dock)
+copilot_window.nav = NavBar(copilot_window, app, dock)
 
 pilot_window.nav.generate_layout()
 grapher_window.nav.generate_layout()
@@ -58,7 +57,8 @@ if len(monitors) > 1:
 if len(monitors) > 2:
     grapher_window.nav.f_undock()
 
-
 dock.showMaximized()
 
-sys.exit(app.exec())
+app.init_data_interface([pilot_window, copilot_window, grapher_window])
+
+app.exec()

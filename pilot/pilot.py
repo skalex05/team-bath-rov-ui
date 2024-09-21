@@ -1,5 +1,7 @@
 import os
 
+from data_interface import DataInterface
+
 from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFrame
@@ -17,3 +19,6 @@ class Pilot(QFrame):
         uic.loadUi(f"{path_dir}\\pilot.ui", self)
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+
+    def update_data(self, data: DataInterface):
+        print(data.ambient_temperature)
