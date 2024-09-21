@@ -5,7 +5,7 @@ from app import App
 from pilot.pilot import Pilot
 from copilot.copilot import Copilot
 from grapher.grapher import Grapher
-from nav_bar.nav_widget import NavBar
+from nav_bar.nav_bar import NavBar
 from dock import Dock
 
 # Get all monitors connected to the computer
@@ -23,34 +23,32 @@ if len(monitors) > 1:
 if len(monitors) > 2:
     graph_monitor = 2
 
-# Build the docked window
-# This will by default store the copilot and grapher windows
-# These windows can be floated and re-docked when needed
+# Build the dock container
 
-dock = Dock(monitors[copilot_monitor], len(monitors))
+dock = Dock(app, monitors[copilot_monitor], len(monitors))
 
-# Create pilot window
-pilot_window = Pilot(monitors[pilot_monitor])
-
-# Create secondary windows
-grapher_window = Grapher(monitors[graph_monitor])
-copilot_window = Copilot(monitors[copilot_monitor])
+# Create windows
+pilot_window = Pilot(app, monitors[pilot_monitor])
+grapher_window = Grapher(app, monitors[graph_monitor])
+copilot_window = Copilot(app, monitors[copilot_monitor])
 
 # Add windows to the dock
 dock.addWidget(pilot_window)
 dock.addWidget(grapher_window)
 dock.addWidget(copilot_window)
 
-# Attach the navigation bars to these windows with correct options
+# Attach the navigation bars to these windows
 
-pilot_window.nav = NavBar(pilot_window, app, dock)
-grapher_window.nav = NavBar(grapher_window, app, dock)
-copilot_window.nav = NavBar(copilot_window, app, dock)
+pilot_window.nav = NavBar(pilot_window, dock)
+grapher_window.nav = NavBar(grapher_window, dock)
+copilot_window.nav = NavBar(copilot_window, dock)
 
+# Generate buttons for each window
 pilot_window.nav.generate_layout()
 grapher_window.nav.generate_layout()
 copilot_window.nav.generate_layout()
 
+# Undock windows if extra monitors are available
 if len(monitors) > 1:
     pilot_window.nav.f_undock()
 
@@ -59,6 +57,7 @@ if len(monitors) > 2:
 
 dock.showMaximized()
 
+# Create the thread that will organise real time data
 app.init_data_interface([pilot_window, copilot_window, grapher_window])
 
-app.exec()
+sys.exit(app.exec())

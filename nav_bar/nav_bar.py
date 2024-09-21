@@ -1,18 +1,27 @@
 import sys
 
 from PyQt6.QtCore import QRect, QPoint
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLayout, QPushButton
+
+from app import App
+from dock import Dock
 from nav_bar.nav_window_button import NavWindowButton
+from window import Window
 
 
 class NavBar(QWidget):
-    def __init__(self, parent_window, app, dock, widget_width=80):
+    """
+        A Navigation bar that is displayed at the top of each window.
+        Allows windows to be docked/undocked/closed/dragged as well as for switching view from within a dock.
+    """
+
+    def __init__(self, parent_window: Window, dock: Dock, widget_width: int = 80):
         super().__init__(parent_window)
         self.buttons = None
-        self.dockable_widget = None
-        self.docked = True
-        self.dock = dock
-        self.app = app
+        self.dockable_widget = None  # Button that says either dock/undock
+        self.docked = True  # Check if the parent window of this nav bar is docked/undocked
+        self.dock = dock  # A reference to the dock window object
+        self.app = parent_window.app
 
         self.parent_window = parent_window
         self.top_window = dock
@@ -28,6 +37,7 @@ class NavBar(QWidget):
         if self.dock is None:
             return
         single = True
+        # Only allow view switching if the window is docked
         if self.docked:
             for i in range(self.dock.count()):
                 window = self.dock.widget(i)
@@ -38,27 +48,31 @@ class NavBar(QWidget):
                 switch_button.clicked.connect(switch_button.on_click)
                 self.layout.addWidget(switch_button)
 
+        # If there is more than one window in the app and if more than one window is available.
+        # Then the window can be docked/undocked
         if not (single and self.docked) and self.dock.dockable:
             self.dockable_widget = QPushButton("Undock" if self.docked else "Dock")
             self.dockable_widget.setMaximumWidth(80)
             self.dockable_widget.clicked.connect(lambda _: self.f_undock() if self.docked else self.f_dock())
             self.layout.addWidget(self.dockable_widget)
 
+        # Add button for closing the program
         self.dockable_widget = QPushButton("Close")
         self.dockable_widget.setMaximumWidth(80)
         self.dockable_widget.clicked.connect(self.app.close)
         self.layout.addWidget(self.dockable_widget)
 
         self.buttons = QWidget(self)
-        self.buttons.setGeometry(QRect(0, 0, self.widget_width*self.layout.count(), self.geometry().height()))
+        self.buttons.setGeometry(QRect(0, 0, self.widget_width * self.layout.count(), self.geometry().height()))
 
         self.buttons.setLayout(self.layout)
 
+        # Adjust size of the navbar depending on how many buttons are in the layout.
         self.setGeometry(QRect(0, 0, self.parent_window.geometry().width(), self.geometry().height()))
 
         self.buttons.show()
-    
-    def clear_layout(self, layout=None):
+
+    def clear_layout(self, layout: QLayout = None):
         if layout is None:
             layout = self.layout
         while layout.count() > 0:
@@ -83,10 +97,11 @@ class NavBar(QWidget):
         self.dock.removeWidget(self.parent_window)
         self.top_window = self.parent_window
         self.parent_window.setParent(None)
-        self.parent_window.setGeometry(self.parent_window.desired_monitor.x + 100,
-                                       self.parent_window.desired_monitor.y + 100,
+        self.parent_window.setGeometry(self.parent_window.desired_monitor.x,
+                                       self.parent_window.desired_monitor.y,
                                        self.parent_window.geometry().width(),
                                        self.parent_window.geometry().height())
+        self.parent_window.showMaximized()
         self.clear_layout()
         self.generate_layout()
 
@@ -101,6 +116,4 @@ class NavBar(QWidget):
     def mouseMoveEvent(self, event):
         delta = event.globalPosition() - self.oldPos
         self.top_window.move(QPoint(int(self.top_window.x() + delta.x()), int(self.top_window.y() + delta.y())))
-        print(QPoint(int(self.x() + delta.x()), int(self.y() + delta.y())))
         self.oldPos = event.globalPosition()
-    
