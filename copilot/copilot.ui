@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1920</width>
+    <width>1932</width>
     <height>1080</height>
    </rect>
   </property>
@@ -59,34 +59,401 @@
     <rect>
      <x>90</x>
      <y>140</y>
-     <width>160</width>
-     <height>80</height>
+     <width>320</width>
+     <height>679</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="SensorData">
-    <item row="0" column="0">
-     <widget class="QLabel" name="AmbientWaterTemp">
+    <property name="leftMargin">
+     <number>20</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>20</number>
+    </property>
+    <property name="bottomMargin">
+     <number>20</number>
+    </property>
+    <item row="0" column="0" colspan="2">
+     <widget class="QLabel" name="Title">
+      <property name="font">
+       <font>
+        <pointsize>22</pointsize>
+       </font>
+      </property>
       <property name="text">
-       <string>Ambient Water Temp</string>
+       <string>Sensor Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
       </property>
      </widget>
     </item>
-    <item row="0" column="1">
-     <widget class="QLabel" name="AmbientWaterTempValue">
+    <item row="1" column="0" colspan="2">
+     <widget class="QLabel" name="Title_7">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
       <property name="text">
-       <string>0</string>
+       <string>ROV Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
       </property>
      </widget>
     </item>
-    <item row="1" column="0">
+    <item row="2" column="0">
+     <widget class="QLabel" name="ROVAttitude">
+      <property name="text">
+       <string>ROV Attitude</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QLabel" name="ROVAngularAcceleration">
+      <property name="text">
+       <string>ROV Angular Acceleration</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QLabel" name="ROVAngularVelocity">
+      <property name="text">
+       <string>ROV Angular Velocity</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="0">
+     <widget class="QLabel" name="ROVAcceleration">
+      <property name="text">
+       <string>ROV Acceleration</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="0">
+     <widget class="QLabel" name="ROVVelocity">
+      <property name="text">
+       <string>ROV Velocity</string>
+      </property>
+     </widget>
+    </item>
+    <item row="7" column="0">
+     <widget class="QLabel" name="ROVDepth">
+      <property name="text">
+       <string>ROV Depth</string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0">
      <widget class="QLabel" name="AmbientPressure">
       <property name="text">
        <string>Ambient Pressure</string>
       </property>
      </widget>
     </item>
-    <item row="1" column="1">
+    <item row="8" column="1">
+     <widget class="QLabel" name="AmbientWaterTempValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="0">
+     <widget class="QLabel" name="AmbientWaterTemp">
+      <property name="text">
+       <string>Ambient Water Temp.</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="1">
      <widget class="QLabel" name="AmbientPressureValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="10" column="0">
+     <widget class="QLabel" name="InternalTemp">
+      <property name="text">
+       <string>Internal Temperature</string>
+      </property>
+     </widget>
+    </item>
+    <item row="11" column="0" colspan="2">
+     <widget class="QLabel" name="Title_2">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Sonar Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item row="12" column="0">
+     <widget class="QLabel" name="MainSonar">
+      <property name="text">
+       <string>Main Cam Sonar</string>
+      </property>
+     </widget>
+    </item>
+    <item row="13" column="0">
+     <widget class="QLabel" name="FLSonar">
+      <property name="text">
+       <string>Forward Left Sonar</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="0">
+     <widget class="QLabel" name="FRSonar">
+      <property name="text">
+       <string>Forward Right Sonar</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="0">
+     <widget class="QLabel" name="BRSonar">
+      <property name="text">
+       <string>Back Right Sonar</string>
+      </property>
+     </widget>
+    </item>
+    <item row="16" column="0">
+     <widget class="QLabel" name="BLSonar">
+      <property name="text">
+       <string>Back Left Sonar</string>
+      </property>
+     </widget>
+    </item>
+    <item row="17" column="0" colspan="2">
+     <widget class="QLabel" name="Title_3">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Actuator Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item row="18" column="0">
+     <widget class="QLabel" name="Actuator1">
+      <property name="text">
+       <string>Actuator 1</string>
+      </property>
+     </widget>
+    </item>
+    <item row="19" column="0">
+     <widget class="QLabel" name="Actuator2">
+      <property name="text">
+       <string>Actuator 2</string>
+      </property>
+     </widget>
+    </item>
+    <item row="20" column="0">
+     <widget class="QLabel" name="Actuator3">
+      <property name="text">
+       <string>Actuator 3</string>
+      </property>
+     </widget>
+    </item>
+    <item row="21" column="0">
+     <widget class="QLabel" name="Actuator4">
+      <property name="text">
+       <string>Actuator 4</string>
+      </property>
+     </widget>
+    </item>
+    <item row="22" column="0">
+     <widget class="QLabel" name="Actuator5">
+      <property name="text">
+       <string>Actuator 5</string>
+      </property>
+     </widget>
+    </item>
+    <item row="23" column="0">
+     <widget class="QLabel" name="Actuator6">
+      <property name="text">
+       <string>Actuator 6</string>
+      </property>
+     </widget>
+    </item>
+    <item row="25" column="0">
+     <widget class="QLabel" name="SMARTRepeaterTemp">
+      <property name="text">
+       <string>SMART Repeater Temp.</string>
+      </property>
+     </widget>
+    </item>
+    <item row="24" column="0" colspan="2">
+     <widget class="QLabel" name="Title_8">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Peripheral Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item row="26" column="0">
+     <widget class="QLabel" name="SMARTFloatDepth">
+      <property name="text">
+       <string>SMART Float Depth</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLabel" name="ROVAttitudeValue">
+      <property name="text">
+       <string>0, 0, 0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="ROVAngularAccelerationValue">
+      <property name="text">
+       <string>0, 0, 0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QLabel" name="ROVAngularVelocityValue">
+      <property name="text">
+       <string>0, 0, 0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="1">
+     <widget class="QLabel" name="ROVAccelerationValue">
+      <property name="text">
+       <string>0, 0, 0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="1">
+     <widget class="QLabel" name="ROVVelocityValue">
+      <property name="text">
+       <string>0, 0, 0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="7" column="1">
+     <widget class="QLabel" name="ROVDepthValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="10" column="1">
+     <widget class="QLabel" name="InternalTempValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="12" column="1">
+     <widget class="QLabel" name="MainSonarValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="13" column="1">
+     <widget class="QLabel" name="FLSonarValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="1">
+     <widget class="QLabel" name="FRSonarValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="1">
+     <widget class="QLabel" name="BRSonarValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="16" column="1">
+     <widget class="QLabel" name="BLSonarValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="18" column="1">
+     <widget class="QLabel" name="Actuator1Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="19" column="1">
+     <widget class="QLabel" name="Actuator2Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="20" column="1">
+     <widget class="QLabel" name="Actuator3Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="22" column="1">
+     <widget class="QLabel" name="Actuator5Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="21" column="1">
+     <widget class="QLabel" name="Actuator4Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="23" column="1">
+     <widget class="QLabel" name="Actuator6Value">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="25" column="1">
+     <widget class="QLabel" name="SMARTRepeaterTempValue">
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </item>
+    <item row="26" column="1">
+     <widget class="QLabel" name="SMARTFloatDepthValue">
       <property name="text">
        <string>0</string>
       </property>
