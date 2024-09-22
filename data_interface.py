@@ -26,12 +26,14 @@ class DataInterface(Thread):
 
         # Interface attributes:
         self.ambient_temperature = 0
+        self.ambient_pressure = 0
 
     def run(self):
         while not self.app.closing:
             # Get new values for interface attributes:
 
-            self.ambient_temperature = rand_float_range(22, 25, 2)
+            self.ambient_temperature = rand_float_range(23, 27, 2)
+            self.ambient_pressure = rand_float_range(18, 21, 2)
 
             # Inform each window that it should update its data
             for window in self.windows:

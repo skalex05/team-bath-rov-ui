@@ -1,5 +1,7 @@
 import os
 
+from PyQt6.QtWidgets import QLabel
+
 from data_interface import DataInterface
 from window import Window
 
@@ -12,5 +14,12 @@ class Copilot(Window):
 
     def update_data(self, data: DataInterface):
         # Display latest data for window
-        pass
-        # print(data.ambient_temperature)
+        ambient_water_temp = self.findChild(QLabel, "AmbientWaterTempValue")
+        ambient_water_temp.setText(str(data.ambient_temperature))
+        ambient_water_temp.update()
+
+        ambient_pressure = self.findChild(QLabel, "AmbientPressureValue")
+        ambient_pressure.setText(str(data.ambient_pressure))
+        ambient_pressure.update()
+
+

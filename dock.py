@@ -27,7 +27,7 @@ class Dock(QStackedWidget):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
         # Prevent undocking if only monitor is available
-        self.dockable = True#monitor_count > 1
+        self.dockable = monitor_count > 1
 
     def on_dock_change(self):
         for i in range(self.count()):
