@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def rand_float_range(a: int | float, b: int | float, dp: int = None):
     return round(a + random() * (b - a), dp)
 
-def rand_qpoint(a: int | float, b : int | float, dp: int = None):
+def rand_vector3(a: int | float, b : int | float, dp: int = None):
     return Vector3(
         rand_float_range(a, b, dp),
         rand_float_range(a, b, dp),
@@ -56,7 +56,7 @@ class DataInterface(Thread):
         self.actuator_6 = 0
 
         self.SMART_repeater_temperature = 0
-        self.SMART_float_depth = 0
+        self.MATE_float_depth = 0
 
     def run(self):
         while not self.app.closing:
@@ -67,10 +67,10 @@ class DataInterface(Thread):
                 rand_float_range(0, 360, 1),
                 rand_float_range(-5, 5, 1)
             )
-            self.angular_acceleration = rand_qpoint(-1, 1, 2)
-            self.angular_velocity = rand_qpoint(-5, 5, 2)
-            self.acceleration = rand_qpoint(-1, 1, 2)
-            self.velocity = rand_qpoint(-5, 5, 2)
+            self.angular_acceleration = rand_vector3(-1, 1, 2)
+            self.angular_velocity = rand_vector3(-5, 5, 2)
+            self.acceleration = rand_vector3(-1, 1, 2)
+            self.velocity = rand_vector3(-5, 5, 2)
             self.depth = rand_float_range(0.5, 2.5, 2)
             self.ambient_temperature = rand_float_range(23, 27, 2)
             self.ambient_pressure = rand_float_range(18, 21, 2)
@@ -90,7 +90,7 @@ class DataInterface(Thread):
             self.actuator_6 = randint(0, 100)
 
             self.SMART_repeater_temperature = rand_float_range(23, 27, 2)
-            self.SMART_float_depth = rand_float_range(0.5, 2.5, 2)
+            self.MATE_float_depth = rand_float_range(0.5, 2.5, 2)
 
             # Inform each window that it should update its data
             for window in self.windows:

@@ -1,16 +1,18 @@
 import os
 
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtWidgets import QLabel, QRadioButton
 
 from data_interface import DataInterface
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
-
 class Copilot(Window):
     def __init__(self, *args):
         super().__init__(f"{path_dir}\\copilot.ui", *args)
+        action = self.findChild(QRadioButton, "ROVPowerAction")
+        action.clicked.connect(lambda _ : print("Clicked"))
+
 
     def set_numerical_value(self, name: str, value: int | float, value_format: str = "{}"):
         widget = self.findChild(QLabel, name)
@@ -74,4 +76,4 @@ class Copilot(Window):
         self.set_numerical_value("Actuator6Value", data.actuator_6, "{:>3} %")
 
         self.set_numerical_value("SMARTRepeaterTempValue", data.SMART_repeater_temperature, "{} °C")
-        self.set_numerical_value("SMARTFloatDepthValue", data.SMART_float_depth, "{} m")
+        self.set_numerical_value("MATEFloatDepthValue", data.MATE_float_depth, "{} m")
