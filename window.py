@@ -27,7 +27,7 @@ class Window(QFrame):
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
-    def update_data(self, data: "DataInterface"):
+    def update_data(self):
         # Each subclass should override this to fit their content
         pass
 

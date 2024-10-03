@@ -1,5 +1,7 @@
 import sys
+import io
 import screeninfo
+from contextlib import redirect_stdout
 
 from app import App
 from pilot.pilot import Pilot
@@ -29,24 +31,25 @@ dock = Dock(app, monitors[copilot_monitor], len(monitors))
 
 # Create windows
 pilot_window = Pilot(app, monitors[pilot_monitor])
-grapher_window = Grapher(app, monitors[graph_monitor])
 copilot_window = Copilot(app, monitors[copilot_monitor])
+grapher_window = Grapher(app, monitors[graph_monitor])
 
 # Add windows to the dock
 dock.addWidget(pilot_window)
-dock.addWidget(grapher_window)
 dock.addWidget(copilot_window)
+dock.addWidget(grapher_window)
 
 # Attach the navigation bars to these windows
 
 pilot_window.nav = NavBar(pilot_window, dock)
-grapher_window.nav = NavBar(grapher_window, dock)
 copilot_window.nav = NavBar(copilot_window, dock)
+grapher_window.nav = NavBar(grapher_window, dock)
 
 # Generate buttons for each window
 pilot_window.nav.generate_layout()
-grapher_window.nav.generate_layout()
+
 copilot_window.nav.generate_layout()
+grapher_window.nav.generate_layout()
 
 # Undock windows if extra monitors are available
 if len(monitors) > 1:
@@ -58,6 +61,11 @@ if len(monitors) > 2:
 dock.showMaximized()
 
 # Create the thread that will organise real time data
-app.init_data_interface([pilot_window, copilot_window, grapher_window])
 
-sys.exit(app.exec())
+sio = io.StringIO()
+
+# Catch standard output
+with redirect_stdout(sio) as redirected_stdout:
+    app.init_data_interface([pilot_window, copilot_window, grapher_window], redirected_stdout)
+
+    sys.exit(app.exec())

@@ -17,6 +17,8 @@ class NavBar(QWidget):
 
     def __init__(self, parent_window: Window, dock: Dock, widget_width: int = 80):
         super().__init__(parent_window)
+        self.close_button_widget = None
+        self.minimise_widget =  None
         self.buttons = None
         self.dockable_widget = None  # Button that says either dock/undock
         self.docked = True  # Check if the parent window of this nav bar is docked/undocked
@@ -56,14 +58,23 @@ class NavBar(QWidget):
             self.dockable_widget.clicked.connect(lambda _: self.f_undock() if self.docked else self.f_dock())
             self.layout.addWidget(self.dockable_widget)
 
+        # Add button for minimising
+        self.minimise_widget = QPushButton("Minimise")
+        self.minimise_widget.setMaximumWidth(80)
+        self.minimise_widget.clicked.connect(self.minimise)
+        self.layout.addWidget(self.minimise_widget)
+
         # Add button for closing the program
-        self.dockable_widget = QPushButton("Close")
-        self.dockable_widget.setMaximumWidth(80)
-        self.dockable_widget.clicked.connect(self.app.close)
-        self.layout.addWidget(self.dockable_widget)
+        self.close_button_widget = QPushButton("Close")
+        self.close_button_widget.setMaximumWidth(80)
+        self.close_button_widget.clicked.connect(self.app.close)
+        self.layout.addWidget(self.close_button_widget)
+
+
 
         self.buttons = QWidget(self)
-        self.buttons.setGeometry(QRect(0, 0, self.widget_width * self.layout.count(), self.geometry().height()))
+        x_offset = self.parent_window.width() - self.widget_width * self.layout.count()
+        self.buttons.setGeometry(QRect(x_offset, 0, self.widget_width * self.layout.count(), self.geometry().height()))
 
         self.buttons.setLayout(self.layout)
 
@@ -82,6 +93,9 @@ class NavBar(QWidget):
                 w.deleteLater()
             else:
                 self.clear_layout(i.layout())
+
+    def minimise(self):
+        self.top_window.showMinimized()
 
     def f_dock(self):
         self.docked = True

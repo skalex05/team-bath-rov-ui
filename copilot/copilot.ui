@@ -40,7 +40,7 @@
      <string>Team Bath Hydrobotics</string>
     </property>
     <property name="alignment">
-     <set>Qt::AlignCenter</set>
+     <set>Qt::AlignmentFlag::AlignCenter</set>
     </property>
    </widget>
    <widget class="QLabel" name="WindowNameLabel">
@@ -76,9 +76,9 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>160</y>
-     <width>320</width>
-     <height>685</height>
+     <y>94</y>
+     <width>361</width>
+     <height>961</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="SensorData">
@@ -105,7 +105,7 @@
        <string>Sensor Data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -120,7 +120,7 @@
        <string>ROV Data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -331,7 +331,7 @@
        <string>Actuator Data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -430,7 +430,7 @@
        <string>Peripheral Data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -473,7 +473,7 @@
        <string>Sonar Data</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -482,10 +482,10 @@
   <widget class="QWidget" name="formLayoutWidget_3">
    <property name="geometry">
     <rect>
-     <x>1555</x>
-     <y>800</y>
-     <width>361</width>
-     <height>261</height>
+     <x>1405</x>
+     <y>710</y>
+     <width>511</width>
+     <height>351</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="SensorData_2">
@@ -512,7 +512,7 @@
        <string>Actions</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignmentFlag::AlignCenter</set>
       </property>
      </widget>
     </item>
@@ -713,6 +713,22 @@
      </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QPlainTextEdit" name="Stdout">
+   <property name="geometry">
+    <rect>
+     <x>393</x>
+     <y>709</y>
+     <width>1001</width>
+     <height>351</height>
+    </rect>
+   </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
+   <property name="placeholderText">
+    <string>stdout</string>
+   </property>
   </widget>
  </widget>
  <resources/>

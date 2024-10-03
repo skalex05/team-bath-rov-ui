@@ -1,3 +1,6 @@
+import io
+import sys
+import time
 from collections.abc import Sequence
 from threading import Thread
 from time import sleep
@@ -25,10 +28,14 @@ class DataInterface(Thread):
         Stores information about the ROV/Float/Etc.
         This information is updated concurrently within the program inside this class's 'run' method.
     """
-    def __init__(self, app: "App", windows: Sequence["Window"]):
+    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: io.StringIO):
         super().__init__()
         self.app = app
         self.windows = windows
+
+        # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
+        self.redirect_stdout = redirect_stdout
+        self.lines_to_add = []  # List of lines that need to be appended to the UI
 
         # Interface attributes:
 
@@ -94,6 +101,14 @@ class DataInterface(Thread):
 
             # Inform each window that it should update its data
             for window in self.windows:
-                window.update_data(self)
+                window.update_data()
 
             sleep(0.1)  # Release thread temporarily
+
+            # Process redirected stdout
+            for line in self.redirect_stdout.getvalue().splitlines():
+                print(line, file=sys.__stdout__)
+                self.lines_to_add.append(line)
+            self.redirect_stdout.seek(0)
+            self.redirect_stdout.truncate(0)
+

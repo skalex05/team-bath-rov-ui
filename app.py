@@ -13,18 +13,21 @@ class App(QApplication):
     """
     def __init__(self, *args):
         super().__init__(*args)
-        self.interface = None
+        self.data_interface: DataInterface | None = None
         self.closing = False
 
-    def init_data_interface(self, windows: Sequence[Window]):
-        self.interface = DataInterface(self, windows)
-        self.interface.start()
+    def init_data_interface(self, windows: Sequence[Window], redirect_stdout):
+        self.data_interface = DataInterface(self, windows, redirect_stdout)
+        for window in windows:
+            window.data = self.data_interface
+        self.data_interface.start()
+
 
     def close(self):
         self.closing = True
         # Rejoin threads before closing
         try:
-            self.interface.join(10)
+            self.data_interface.join(10)
         except ThreadError:
             print("Could not close data interface thread.")
         self.quit()
