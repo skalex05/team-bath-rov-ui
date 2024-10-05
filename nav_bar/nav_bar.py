@@ -71,8 +71,6 @@ class NavBar(QWidget):
         self.close_button_widget.clicked.connect(self.app.close)
         self.layout.addWidget(self.close_button_widget)
 
-
-
         self.buttons = QWidget(self)
         x_offset = self.parent_window.width() - self.widget_width * self.layout.count()
         self.buttons.setGeometry(QRect(x_offset, 0, self.widget_width * self.layout.count(), self.geometry().height()))

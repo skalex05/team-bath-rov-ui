@@ -1,2 +1,4 @@
 PyQt6~=6.4.2
 screeninfo~=0.8.1
+opencv-python>=4.10.0.84
+numpy>=1.26.4

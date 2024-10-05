@@ -1,11 +1,10 @@
 import os
-import sys
 import time
 
-from PyQt6.QtGui import QTextCursor
+from PyQt6.QtGui import QTextCursor, QPixmap, QImage
 
 from vector3 import Vector3
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView
 
 from data_interface import DataInterface
 from window import Window
@@ -65,7 +64,7 @@ class Copilot(Window):
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action.clicked.connect(self.maintain_depth)
 
-
+        self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
         # Stdout
 
@@ -154,5 +153,12 @@ class Copilot(Window):
 
         if not self.maintain_depth_action.isChecked():
             self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
+
+        frame = self.data.camera_feeds[0]
+        if frame.camera_frame:
+            rect = self.main_cam.geometry()
+            self.main_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+        else:
+            self.main_cam.setText("Main Camera Is Unavailable")
 
         self.update()

@@ -1,7 +1,7 @@
 import sys
 import io
 import screeninfo
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 
 from app import App
 from pilot.pilot import Pilot
@@ -59,7 +59,9 @@ dock.showMaximized()
 sio = io.StringIO()
 
 # Catch standard output
-with redirect_stdout(sio) as redirected_stdout:
-    app.init_data_interface([pilot_window, copilot_window, grapher_window], redirected_stdout)
+with redirect_stderr(sio) as redirected_stderr:
+    with redirect_stdout(sio) as redirected_stdout:
+        app.init_data_interface([pilot_window, copilot_window, grapher_window],
+                                redirected_stdout, redirected_stderr)
 
-    sys.exit(app.exec())
+        sys.exit(app.exec())

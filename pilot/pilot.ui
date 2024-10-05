@@ -40,7 +40,7 @@
      <string>Team Bath Hydrobotics</string>
     </property>
     <property name="alignment">
-     <set>Qt::AlignCenter</set>
+     <set>Qt::AlignmentFlag::AlignCenter</set>
     </property>
    </widget>
   </widget>
@@ -70,6 +70,81 @@
    </property>
    <property name="text">
     <string>Pilot</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="MainCameraView">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>420</y>
+     <width>1120</width>
+     <height>630</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::Shape::Box</enum>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="SecondaryCameraView1">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>100</y>
+     <width>544</width>
+     <height>306</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::Shape::StyledPanel</enum>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="SecondaryCameraView2">
+   <property name="geometry">
+    <rect>
+     <x>930</x>
+     <y>100</y>
+     <width>544</width>
+     <height>306</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::Shape::StyledPanel</enum>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
    </property>
   </widget>
  </widget>

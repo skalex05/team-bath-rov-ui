@@ -637,7 +637,7 @@
     <rect>
      <x>303</x>
      <y>739</y>
-     <width>1111</width>
+     <width>1121</width>
      <height>321</height>
     </rect>
    </property>
@@ -654,14 +654,26 @@
     <string>stdout</string>
    </property>
   </widget>
-  <widget class="QGraphicsView" name="graphicsView">
+  <widget class="QLabel" name="MainCameraView">
    <property name="geometry">
     <rect>
-     <x>300</x>
-     <y>100</y>
+     <x>308</x>
+     <y>95</y>
      <width>1120</width>
      <height>630</height>
     </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignmentFlag::AlignCenter</set>
    </property>
   </widget>
  </widget>

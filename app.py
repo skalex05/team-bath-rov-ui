@@ -16,8 +16,8 @@ class App(QApplication):
         self.data_interface: DataInterface | None = None
         self.closing = False
 
-    def init_data_interface(self, windows: Sequence[Window], redirect_stdout):
-        self.data_interface = DataInterface(self, windows, redirect_stdout)
+    def init_data_interface(self, windows: Sequence[Window], redirect_stdout, redirect_stderr):
+        self.data_interface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
         for window in windows:
             window.data = self.data_interface
         self.data_interface.start()
