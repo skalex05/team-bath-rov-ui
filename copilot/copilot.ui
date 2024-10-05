@@ -77,7 +77,7 @@
     <rect>
      <x>20</x>
      <y>94</y>
-     <width>361</width>
+     <width>271</width>
      <height>961</height>
     </rect>
    </property>
@@ -482,13 +482,16 @@
   <widget class="QWidget" name="formLayoutWidget_3">
    <property name="geometry">
     <rect>
-     <x>1405</x>
-     <y>710</y>
-     <width>511</width>
-     <height>351</height>
+     <x>1530</x>
+     <y>750</y>
+     <width>391</width>
+     <height>311</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="SensorData_2">
+    <property name="labelAlignment">
+     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTop|Qt::AlignmentFlag::AlignTrailing</set>
+    </property>
     <property name="leftMargin">
      <number>20</number>
     </property>
@@ -513,120 +516,6 @@
       </property>
       <property name="alignment">
        <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QRadioButton" name="MaintainDepthAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Maintain Depth (0)</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1">
-     <widget class="QRadioButton" name="ConnectSMARTRepeaterAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Connect to SMART repeater</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="0">
-     <widget class="QRadioButton" name="AutoPilotAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Auto Pilot</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="1">
-     <widget class="QRadioButton" name="ConnectMATEFloatAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Connect to MATE float</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="0">
-     <widget class="QRadioButton" name="CheckThrustersAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Check Thrusters</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QRadioButton" name="CheckActuators">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Check Actuators</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
       </property>
      </widget>
     </item>
@@ -674,8 +563,8 @@
       </property>
      </widget>
     </item>
-    <item row="5" column="0">
-     <widget class="QRadioButton" name="Generate3DModelAction">
+    <item row="2" column="0">
+     <widget class="QRadioButton" name="CheckThrustersAction">
       <property name="enabled">
        <bool>true</bool>
       </property>
@@ -686,15 +575,37 @@
        </size>
       </property>
       <property name="text">
-       <string>Generate 3D Model</string>
+       <string>Check Thrusters</string>
       </property>
       <property name="autoExclusive">
        <bool>false</bool>
       </property>
      </widget>
     </item>
-    <item row="5" column="1">
-     <widget class="QRadioButton" name="RestartJetsonAction">
+    <item row="2" column="1">
+     <widget class="QRadioButton" name="CheckActuatorsAction">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>150</width>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="contextMenuPolicy">
+       <enum>Qt::ContextMenuPolicy::NoContextMenu</enum>
+      </property>
+      <property name="text">
+       <string>Check Actuators</string>
+      </property>
+      <property name="autoExclusive">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QRadioButton" name="MaintainDepthAction">
       <property name="enabled">
        <bool>true</bool>
       </property>
@@ -705,10 +616,17 @@
        </size>
       </property>
       <property name="text">
-       <string>Restart Jetson</string>
+       <string>Maintain Depth (0)</string>
       </property>
       <property name="autoExclusive">
        <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string/>
       </property>
      </widget>
     </item>
@@ -717,17 +635,33 @@
   <widget class="QPlainTextEdit" name="Stdout">
    <property name="geometry">
     <rect>
-     <x>393</x>
-     <y>709</y>
-     <width>1001</width>
-     <height>351</height>
+     <x>303</x>
+     <y>739</y>
+     <width>1111</width>
+     <height>321</height>
     </rect>
+   </property>
+   <property name="verticalScrollBarPolicy">
+    <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>
+   </property>
+   <property name="documentTitle">
+    <string/>
    </property>
    <property name="readOnly">
     <bool>true</bool>
    </property>
    <property name="placeholderText">
     <string>stdout</string>
+   </property>
+  </widget>
+  <widget class="QGraphicsView" name="graphicsView">
+   <property name="geometry">
+    <rect>
+     <x>300</x>
+     <y>100</y>
+     <width>1120</width>
+     <height>630</height>
+    </rect>
    </property>
   </widget>
  </widget>

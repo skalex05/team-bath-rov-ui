@@ -1,6 +1,6 @@
 import io
 import sys
-import time
+from collections import deque
 from collections.abc import Sequence
 from threading import Thread
 from time import sleep
@@ -12,11 +12,13 @@ if TYPE_CHECKING:
     from window import Window
     from app import App
 
+
 # Temp function for generating a random float (optionally rounded to 'dp' decimal places)
 def rand_float_range(a: int | float, b: int | float, dp: int = None):
     return round(a + random() * (b - a), dp)
 
-def rand_vector3(a: int | float, b : int | float, dp: int = None):
+
+def rand_vector3(a: int | float, b: int | float, dp: int = None):
     return Vector3(
         rand_float_range(a, b, dp),
         rand_float_range(a, b, dp),
@@ -28,14 +30,16 @@ class DataInterface(Thread):
         Stores information about the ROV/Float/Etc.
         This information is updated concurrently within the program inside this class's 'run' method.
     """
+
     def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: io.StringIO):
         super().__init__()
         self.app = app
         self.windows = windows
+        self.i = 0
 
         # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout
-        self.lines_to_add = []  # List of lines that need to be appended to the UI
+        self.lines_to_add = deque(maxlen=10)  # Queue of lines that need to be appended to the UI
 
         # Interface attributes:
 
@@ -99,16 +103,19 @@ class DataInterface(Thread):
             self.SMART_repeater_temperature = rand_float_range(23, 27, 2)
             self.MATE_float_depth = rand_float_range(0.5, 2.5, 2)
 
-            # Inform each window that it should update its data
-            for window in self.windows:
-                window.update_data()
-
-            sleep(0.1)  # Release thread temporarily
-
             # Process redirected stdout
-            for line in self.redirect_stdout.getvalue().splitlines():
-                print(line, file=sys.__stdout__)
+            self.redirect_stdout.flush()
+            lines = self.redirect_stdout.getvalue().splitlines()
+            for line in lines:
                 self.lines_to_add.append(line)
+                print(line, file=sys.__stdout__)
             self.redirect_stdout.seek(0)
             self.redirect_stdout.truncate(0)
 
+            # Inform each window that it should update its data
+            for window in self.windows:
+                window.on_update.emit()
+
+            sleep(0.1)  # Release thread temporarily
+
+            self.i += 1

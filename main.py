@@ -34,22 +34,16 @@ pilot_window = Pilot(app, monitors[pilot_monitor])
 copilot_window = Copilot(app, monitors[copilot_monitor])
 grapher_window = Grapher(app, monitors[graph_monitor])
 
+# Attach the navigation bars to these windows
+
+pilot_window.attach_nav_bar(dock)
+copilot_window.attach_nav_bar(dock)
+grapher_window.attach_nav_bar(dock)
+
 # Add windows to the dock
 dock.addWidget(pilot_window)
 dock.addWidget(copilot_window)
 dock.addWidget(grapher_window)
-
-# Attach the navigation bars to these windows
-
-pilot_window.nav = NavBar(pilot_window, dock)
-copilot_window.nav = NavBar(copilot_window, dock)
-grapher_window.nav = NavBar(grapher_window, dock)
-
-# Generate buttons for each window
-pilot_window.nav.generate_layout()
-
-copilot_window.nav.generate_layout()
-grapher_window.nav.generate_layout()
 
 # Undock windows if extra monitors are available
 if len(monitors) > 1:

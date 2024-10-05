@@ -1,12 +1,13 @@
-import sys
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QRect, QPoint
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLayout, QPushButton
 
-from app import App
 from dock import Dock
 from nav_bar.nav_window_button import NavWindowButton
-from window import Window
+
+if TYPE_CHECKING:
+    from window import Window
 
 
 class NavBar(QWidget):
@@ -15,10 +16,10 @@ class NavBar(QWidget):
         Allows windows to be docked/undocked/closed/dragged as well as for switching view from within a dock.
     """
 
-    def __init__(self, parent_window: Window, dock: Dock, widget_width: int = 80):
+    def __init__(self, parent_window: "Window", dock: Dock, widget_width: int = 80):
         super().__init__(parent_window)
         self.close_button_widget = None
-        self.minimise_widget =  None
+        self.minimise_widget = None
         self.buttons = None
         self.dockable_widget = None  # Button that says either dock/undock
         self.docked = True  # Check if the parent window of this nav bar is docked/undocked

@@ -1,12 +1,14 @@
 from typing import TYPE_CHECKING
 
+from nav_bar.nav_bar import NavBar
+
 if TYPE_CHECKING:
     from data_interface import DataInterface
     from app import App
 
 from PyQt6 import uic
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QFrame, QWidget
 from screeninfo.common import Monitor
 
 
@@ -16,8 +18,10 @@ class Window(QFrame):
         Allows for consistent styling of the windows.
         Specific windows should inherit this class for proper usage.
     """
+    on_update = pyqtSignal()
     def __init__(self, file, app: "App", monitor: Monitor):
         super().__init__()
+        self.nav = None
         self.app = app
         self.desired_monitor = monitor  # When undocked, this window will be displayed on this monitor
         # Set window size and load content
@@ -26,7 +30,13 @@ class Window(QFrame):
         # Position the window and remove the default window frame
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.on_update.connect(self.update_data)
 
+    def attach_nav_bar(self, dock):
+        self.nav = NavBar(self, dock)
+        self.nav.generate_layout()
+
+    @pyqtSlot(QWidget)
     def update_data(self):
         # Each subclass should override this to fit their content
         pass

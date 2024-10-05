@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+
+from PyQt6.QtGui import QTextCursor
 
 from vector3 import Vector3
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit
@@ -53,12 +56,21 @@ class Copilot(Window):
         self.rov_power_action: QRadioButton = self.findChild(QRadioButton, "ROVPowerAction")
         self.rov_power_action.clicked.connect(self.on_rov_power)
 
+        self.check_thrusters_action: QRadioButton = self.findChild(QRadioButton, "CheckThrustersAction")
+        self.check_thrusters_action.clicked.connect(self.check_thrusters)
+
+        self.check_actuators_action: QRadioButton = self.findChild(QRadioButton, "CheckActuatorsAction")
+        self.check_actuators_action.clicked.connect(self.check_actuators)
+
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action.clicked.connect(self.maintain_depth)
+
+
 
         # Stdout
 
         self.stdout_window: QPlainTextEdit = self.findChild(QPlainTextEdit, "Stdout")
+        self.stdout_cursor = self.stdout_window.textCursor()
 
     # Action Functions
     def recalibrate_imu(self, checked: bool):
@@ -100,10 +112,13 @@ class Copilot(Window):
 
     def update_data(self):
         # Display latest data for window
+        adjust = len(self.data.lines_to_add) > 0
+        for i in range(len(self.data.lines_to_add)):
+            line = self.data.lines_to_add.pop()
+            self.stdout_window.insertPlainText(line+"\n")
 
-        while len(self.data.lines_to_add) > 0:
-            line = self.data.lines_to_add.pop(0)
-            self.stdout_window.appendPlainText(line)
+        if adjust:
+            self.stdout_window.ensureCursorVisible()
 
         t = self.data.attitude
         self.rov_attitude_value.setText(f"{t.x:<5}°, {t.y:<5}°, {t.z:<5}°")
@@ -139,3 +154,5 @@ class Copilot(Window):
 
         if not self.maintain_depth_action.isChecked():
             self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
+
+        self.update()
