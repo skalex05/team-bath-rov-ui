@@ -38,12 +38,12 @@ class Pilot(Window):
             rect = self.secondary_1_cam.geometry()
             self.secondary_1_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
         else:
-            self.main_cam.setText("Secondary Cam 1 Is Unavailable")
+            self.secondary_1_cam.setText("Secondary Cam 1 Is Unavailable")
 
         frame = self.data.camera_feeds[0]
         if frame.camera_frame:
             rect = self.secondary_2_cam.geometry()
             self.secondary_2_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
         else:
-            self.main_cam.setText("Secondary Cam 2 Is Unavailable")
+            self.secondary_2_cam.setText("Secondary Cam 2 Is Unavailable")
 

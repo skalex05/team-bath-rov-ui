@@ -666,6 +666,9 @@
    <property name="autoFillBackground">
     <bool>false</bool>
    </property>
+   <property name="frameShape">
+    <enum>QFrame::Shape::Box</enum>
+   </property>
    <property name="text">
     <string/>
    </property>

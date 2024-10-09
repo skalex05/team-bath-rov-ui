@@ -28,8 +28,13 @@ class Dock(QStackedWidget):
 
         # Prevent undocking if only monitor is available
         self.dockable = monitor_count > 1
+    def add_windows(self, *windows):
+        for window in windows:
+            self.addWidget(window)
+        self.on_dock_change()
 
     def on_dock_change(self):
+        print("change")
         for i in range(self.count()):
             # Regenerate the nav bar if a window has been docked/undocked
             window = self.widget(i)

@@ -3,7 +3,7 @@ import sys
 from collections import deque
 from collections.abc import Sequence
 from threading import Thread
-from time import sleep
+from time import sleep, time
 from random import random, randint
 from typing import TYPE_CHECKING
 from video_stream import VideoStream
@@ -137,4 +137,4 @@ class DataInterface(Thread):
             for window in self.windows:
                 window.on_update.emit()
 
-            sleep(0.1)  # Release thread temporarily
+            sleep(0.0167)  # Release thread temporarily. Update 60 times a second.

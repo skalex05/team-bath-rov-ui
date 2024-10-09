@@ -41,9 +41,7 @@ copilot_window.attach_nav_bar(dock)
 grapher_window.attach_nav_bar(dock)
 
 # Add windows to the dock
-dock.addWidget(pilot_window)
-dock.addWidget(copilot_window)
-dock.addWidget(grapher_window)
+dock.add_windows(pilot_window, copilot_window, grapher_window)
 
 # Undock windows if extra monitors are available
 if len(monitors) > 1:
