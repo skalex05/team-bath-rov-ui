@@ -1,18 +1,19 @@
 {
     "files": [
-    	"main.py",
-	"dock.py",
-	"window.py",
-	"vector3.py",
-	"data_interface.py",
-	"app.py",
-	"copilot/copilot.py",
-	"copilot/copilot.ui",
-	"grapher/grapher.py",
-	"grapher/grapher.ui",
-	"pilot/pilot.py",
-	"pilot/pilot.ui",
-	"nav_bar/nav_bar.py",
-	"nav_bar/nav_window_button.py"
+        "main.py",
+        "dock.py",
+        "window.py",
+        "vector3.py",
+        "data_interface.py",
+        "app.py",
+        "copilot/copilot.py",
+        "copilot/copilot.ui",
+        "grapher/grapher.py",
+        "grapher/grapher.ui",
+        "pilot/pilot.py",
+        "pilot/pilot.ui",
+        "nav_bar/nav_bar.py",
+        "nav_bar/nav_window_button.py",
+        "tasks/task_widget.ui"
     ]
 }

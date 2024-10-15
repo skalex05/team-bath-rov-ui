@@ -6,6 +6,7 @@ from PyQt6.QtGui import QImage, QPixmap
 
 
 class VideoStream:
+    max_attempts = 10
     def __init__(self, index):
         self.camera_frame = None
         self.camera_feed = None
@@ -14,6 +15,7 @@ class VideoStream:
         self.height = -1
         self.channels = -1
         self.init_camera_feed()
+        self.init_attempts = 0
 
     def init_camera_feed(self):
         print(f"Initialising Cam {self.index + 1}")
@@ -28,7 +30,6 @@ class VideoStream:
     def update_camera_frame(self):
         self.time = time()
         if self.camera_feed is None:
-            self.init_camera_feed()
             return
         ret, frame = self.camera_feed.read()
         if not ret:
