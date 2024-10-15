@@ -4,13 +4,22 @@ import time
 from PyQt6.QtGui import QTextCursor, QPixmap, QImage
 
 from vector3 import Vector3
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView, QPushButton, QProgressBar
+
+from PyQt6 import QtCore
 
 from data_interface import DataInterface
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
+# Timer prerequisites
+DURATION_INT = 900
+def secs_to_minsec(secs: int):
+    mins = secs // 60
+    secs = secs % 60
+    minsec = f'{mins:02}:{secs:02}'
+    return minsec
 
 class Copilot(Window):
     def __init__(self, *args):
@@ -47,6 +56,24 @@ class Copilot(Window):
         self.smart_repeater_temp_value: QLabel = self.findChild(QLabel, "SMARTRepeaterTempValue")
         self.mate_float_depth_value: QLabel = self.findChild(QLabel, "MATEFloatDepthValue")
 
+        # Timer
+
+        self.time_left_int = DURATION_INT
+        self.myTimer = QtCore.QTimer(self)
+
+        self.startTimeButton = self.findChild(QPushButton, "startTimeButton")
+        self.startTimeButton.clicked.connect(self.startTimer)
+        self.stopTimeButton = self.findChild(QPushButton, "stopTimeButton")
+        self.stopTimeButton.clicked.connect(self.stopTimer)
+        self.remainingTime = self.findChild(QLabel, "remainingTime")
+
+        self.updateTime()
+
+        self.progressTimeBar = self.findChild(QProgressBar, "progressTimeBar")
+        self.progressTimeBar.setMinimum(0)
+        self.progressTimeBar.setMaximum(DURATION_INT)
+
+
         # Actions
 
         self.recalibrate_imu_action: QRadioButton = self.findChild(QRadioButton, "RecalibrateIMUAction")
@@ -70,6 +97,41 @@ class Copilot(Window):
 
         self.stdout_window: QPlainTextEdit = self.findChild(QPlainTextEdit, "Stdout")
         self.stdout_cursor = self.stdout_window.textCursor()
+
+    # Timer Functions
+
+    def startTimer(self):
+        if not self.myTimer.isActive():
+            try:
+                self.myTimer.timeout.disconnect(self.timerTimeout)
+            except TypeError:
+                pass
+
+            self.myTimer.timeout.connect(self.timerTimeout)
+            self.myTimer.setInterval(1000)
+            self.myTimer.start()
+            self.stopTimeButton.setText("Stop")
+
+    def stopTimer(self):
+        if not self.myTimer.isActive():
+            self.time_left_int = DURATION_INT
+            self.updateTime()
+        self.myTimer.stop()
+        self.stopTimeButton.setText("Reset")
+
+    def timerTimeout(self):
+        self.time_left_int -= 1
+
+        if self.time_left_int == 0:
+            self.stopTimer()
+
+        self.updateTime()
+
+    def updateTime(self):
+        minsec = secs_to_minsec(self.time_left_int)
+        self.remainingTime.setText(minsec)
+        self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
+
 
     # Action Functions
     def recalibrate_imu(self, checked: bool):
