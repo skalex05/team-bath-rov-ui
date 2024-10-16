@@ -14,6 +14,7 @@
         "pilot/pilot.ui",
         "nav_bar/nav_bar.py",
         "nav_bar/nav_window_button.py",
-        "tasks/task_widget.ui"
+        "tasks/task_widget.ui",
+	"tasks/task.py"
     ]
 }
