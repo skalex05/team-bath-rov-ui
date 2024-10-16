@@ -4,9 +4,10 @@ import time
 from PyQt6.QtGui import QTextCursor, QPixmap, QImage
 
 from vector3 import Vector3
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView, QPushButton, QProgressBar
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView, QPushButton, QProgressBar, QScrollArea
 
 from PyQt6 import QtCore
+from PyQt6.QtCore import QRect
 
 from data_interface import DataInterface
 from window import Window
