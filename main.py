@@ -7,7 +7,6 @@ from app import App
 from pilot.pilot import Pilot
 from copilot.copilot import Copilot
 from grapher.grapher import Grapher
-from nav_bar.nav_bar import NavBar
 from dock import Dock
 
 # Get all monitors connected to the computer

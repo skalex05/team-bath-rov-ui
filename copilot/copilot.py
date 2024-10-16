@@ -74,7 +74,6 @@ class Copilot(Window):
         self.progressTimeBar.setMinimum(0)
         self.progressTimeBar.setMaximum(DURATION_INT)
 
-
         # Actions
 
         self.recalibrate_imu_action: QRadioButton = self.findChild(QRadioButton, "RecalibrateIMUAction")
@@ -99,6 +98,12 @@ class Copilot(Window):
         self.stdout_window: QPlainTextEdit = self.findChild(QPlainTextEdit, "Stdout")
         self.stdout_cursor = self.stdout_window.textCursor()
 
+        # Tasks
+
+        self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
+        self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
+        self.build_task_widgets()
+
     # Timer Functions
 
     def startTimer(self):
@@ -112,6 +117,7 @@ class Copilot(Window):
             self.myTimer.setInterval(1000)
             self.myTimer.start()
             self.stopTimeButton.setText("Stop")
+        self.app.reset_task_completion()
 
     def stopTimer(self):
         if not self.myTimer.isActive():
@@ -132,12 +138,6 @@ class Copilot(Window):
         minsec = secs_to_minsec(self.time_left_int)
         self.remainingTime.setText(minsec)
         self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
-
-        # Tasks
-
-        self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
-        self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
-        self.build_task_widgets()
 
     def build_task_widgets(self):
         list_geometry = self.task_list_contents.geometry()
