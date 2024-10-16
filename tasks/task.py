@@ -31,7 +31,7 @@ class Task(QWidget):
 
     def on_check(self):
         self.completed = not self.completed
-        self.app.on_task_check.emit(self)
+        self.app.task_checked.emit(self)
 
 
 
