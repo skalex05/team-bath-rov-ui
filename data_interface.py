@@ -41,7 +41,7 @@ class DataInterface(Thread):
         super().__init__()
         self.app = app
         self.windows = windows
-        self.camera_feed_count = 2
+        self.camera_feed_count = 1
 
         # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout

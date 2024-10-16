@@ -132,7 +132,7 @@ class Copilot(Window):
         # Display latest data for window
         adjust = len(self.data.lines_to_add) > 0
         for i in range(len(self.data.lines_to_add)):
-            line = self.data.lines_to_add.pop()
+            line = self.data.lines_to_add.popleft()
             self.stdout_window.insertPlainText(line+"\n")
 
         if adjust:
