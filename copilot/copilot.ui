@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Copilot</string>
   </property>
-  <widget class="QWidget" name="centralwidget" native="true">
+  <widget class="QWidget" name="Title" native="true">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -250,6 +250,21 @@
       </property>
      </widget>
     </item>
+    <item row="11" column="0" colspan="2">
+     <widget class="QLabel" name="SonarData">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Sonar Data</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
     <item row="12" column="0">
      <widget class="QLabel" name="MainSonar">
       <property name="text">
@@ -462,29 +477,14 @@
       </property>
      </widget>
     </item>
-    <item row="11" column="0" colspan="2">
-     <widget class="QLabel" name="SonarData">
-      <property name="font">
-       <font>
-        <pointsize>16</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Sonar Data</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
    </layout>
   </widget>
   <widget class="QWidget" name="formLayoutWidget_3">
    <property name="geometry">
     <rect>
-     <x>1530</x>
+     <x>1440</x>
      <y>750</y>
-     <width>391</width>
+     <width>481</width>
      <height>311</height>
     </rect>
    </property>
@@ -526,7 +526,7 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>150</width>
+        <width>200</width>
         <height>30</height>
        </size>
       </property>
@@ -570,7 +570,7 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>150</width>
+        <width>200</width>
         <height>30</height>
        </size>
       </property>
@@ -611,7 +611,7 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>150</width>
+        <width>200</width>
         <height>30</height>
        </size>
       </property>
@@ -726,6 +726,34 @@
      </widget>
     </item>
    </layout>
+  <widget class="QScrollArea" name="TaskList">
+   <property name="geometry">
+    <rect>
+     <x>1450</x>
+     <y>160</y>
+     <width>471</width>
+     <height>441</height>
+    </rect>
+   </property>
+   <property name="widgetResizable">
+    <bool>false</bool>
+   </property>
+   <widget class="QWidget" name="TaskListContents">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>450</width>
+      <height>600</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
  </widget>
  <resources/>

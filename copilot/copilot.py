@@ -132,6 +132,23 @@ class Copilot(Window):
         self.remainingTime.setText(minsec)
         self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
 
+        # Tasks
+
+        self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
+        self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
+        self.build_task_widgets()
+
+    def build_task_widgets(self):
+        list_geometry = self.task_list_contents.geometry()
+        list_geometry.setHeight(len(self.app.tasks) * self.app.tasks[0].height())
+        self.task_list_contents.setGeometry(list_geometry)
+        # Sort display order of tasks into chronological order
+        # Set the parents of each task widget to be the list container
+        # Move the task to fit at the correct position in the list
+        for i, task in enumerate(self.app.tasks):
+            task.setParent(self.task_list_contents)
+            geometry = QRect(0, i*task.height(), list_geometry.width(), task.height())
+            task.setGeometry(geometry)
 
     # Action Functions
     def recalibrate_imu(self, checked: bool):
@@ -175,7 +192,7 @@ class Copilot(Window):
         # Display latest data for window
         adjust = len(self.data.lines_to_add) > 0
         for i in range(len(self.data.lines_to_add)):
-            line = self.data.lines_to_add.pop()
+            line = self.data.lines_to_add.popleft()
             self.stdout_window.insertPlainText(line+"\n")
 
         if adjust:
@@ -216,11 +233,14 @@ class Copilot(Window):
         if not self.maintain_depth_action.isChecked():
             self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
 
-        frame = self.data.camera_feeds[0]
-        if frame.camera_frame:
-            rect = self.main_cam.geometry()
-            self.main_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
-        else:
+        try:
+            frame = self.data.camera_feeds[0]
+            if frame.camera_frame:
+                rect = self.main_cam.geometry()
+                self.main_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+            else:
+                raise IndexError()
+        except IndexError:
             self.main_cam.setText("Main Camera Is Unavailable")
 
         self.update()

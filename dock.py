@@ -34,7 +34,6 @@ class Dock(QStackedWidget):
         self.on_dock_change()
 
     def on_dock_change(self):
-        print("change")
         for i in range(self.count()):
             # Regenerate the nav bar if a window has been docked/undocked
             window = self.widget(i)
