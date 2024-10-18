@@ -125,7 +125,7 @@ class Copilot(Window):
         self.updateTime()
 
     def updateTime(self):
-        minsec = secs_to_minsec(self.time_left_int)
+        minsec = self.secs_to_minsec(self.time_left_int)
         self.remainingTime.setText(minsec)
         self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
 
