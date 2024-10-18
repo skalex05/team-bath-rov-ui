@@ -8,9 +8,6 @@ from random import random, randint
 from typing import TYPE_CHECKING
 from video_stream import VideoStream
 
-import numpy as np
-from PyQt6.QtGui import QImage
-
 from vector3 import Vector3
 
 if TYPE_CHECKING:
@@ -76,7 +73,7 @@ class DataInterface(Thread):
         self.SMART_repeater_temperature = 0
         self.MATE_float_depth = 0
 
-        self.camera_feeds: [VideoStream] = [VideoStream(i) for i in range(self.camera_feed_count)]
+        self.camera_feeds: [VideoStream] = [VideoStream(self.app, i) for i in range(self.camera_feed_count)]
 
     def run(self):
         while not self.app.closing:

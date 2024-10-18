@@ -2,24 +2,34 @@ from collections.abc import Sequence
 from threading import ThreadError
 
 from PyQt6.QtCore import pyqtSignal
+from screeninfo import screeninfo
 
+from copilot.copilot import Copilot
 from data_interface import DataInterface
-from window import Window
+from dock import Dock
+from grapher.grapher import Grapher
+from pilot.pilot import Pilot
 from tasks.task import Task
 
 from PyQt6.QtWidgets import QApplication, QWidget
+
+from video_stream import VideoStream
 
 
 class App(QApplication):
     """
         Class for storing about the overall application.
     """
-    on_task_check = pyqtSignal(QWidget)
+    task_checked = pyqtSignal(QWidget)
+    camera_initialisation_complete = pyqtSignal(VideoStream)
 
     def __init__(self, *args):
         super().__init__(*args)
         self.data_interface: DataInterface | None = None
         self.closing = False
+
+        # Create the list of tasks the ROV should complete
+
         self.tasks: [Task] = [
             Task(self, "Install AUV docking station", "Move the ROV around and get used to the controls"),
             Task(self, "Place probiotic irrigation system in designated location",
@@ -36,16 +46,60 @@ class App(QApplication):
             Task(self, "Return to the surface", "Rahhhh", (13, 0)),
             Task(self, "Return to base", "Quickly!", (14, 0))
         ]
-        self.tasks = list(sorted(self.tasks, key=lambda t: t.start_time[0] * 60 + t.start_time[1]))
+        self.tasks = list(sorted(self.tasks, key=lambda t: t.start_time[0] * 60 + t.start_time[1], reverse=True))
+
+        # Get all monitors connected to the computer
+        monitors = screeninfo.get_monitors()
+
+        # Assign each window to its own monitor if available
+        pilot_monitor = 0
+        copilot_monitor = 0
+        graph_monitor = 0
+        if len(monitors) > 1:
+            copilot_monitor = 1
+            graph_monitor = 1
+        if len(monitors) > 2:
+            graph_monitor = 2
+
+        # Build the dock container
+
+        self.dock = Dock(self, monitors[copilot_monitor], len(monitors))
+
+        # Create windows
+        self.pilot_window = Pilot(self, monitors[pilot_monitor])
+        self.copilot_window = Copilot(self, monitors[copilot_monitor])
+        self.grapher_window = Grapher(self, monitors[graph_monitor])
+
+        # Attach the navigation bars to these windows
+
+        self.pilot_window.attach_nav_bar(self.dock)
+        self.copilot_window.attach_nav_bar(self.dock)
+        self.grapher_window.attach_nav_bar(self.dock)
+
+        # Add windows to the dock
+        self.dock.add_windows(self.pilot_window, self.copilot_window, self.grapher_window)
+
+        # Undock windows if extra monitors are available
+        if len(monitors) > 1:
+            self.pilot_window.nav.f_undock()
+
+        if len(monitors) > 2:
+            self.grapher_window.nav.f_undock()
+
+        self.dock.showMaximized()
 
     def reset_task_completion(self):
         for task in self.tasks:
             task.completed = False
 
-    def init_data_interface(self, windows: Sequence[Window], redirect_stdout, redirect_stderr):
+    def init_data_interface(self, redirect_stdout, redirect_stderr):
+        windows = [self.pilot_window, self.copilot_window, self.grapher_window]
+        # Create the data interface
+        # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
         self.data_interface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
         for window in windows:
             window.data = self.data_interface
+        # Start the interface to run in a separate thread
         self.data_interface.start()
 
     def close(self):

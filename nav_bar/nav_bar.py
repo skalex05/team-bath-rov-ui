@@ -83,6 +83,7 @@ class NavBar(QWidget):
         self.buttons.show()
 
     def clear_layout(self, layout: QLayout = None):
+        # Remove all windows in the  layout
         if layout is None:
             layout = self.layout
         while layout.count() > 0:
@@ -97,13 +98,15 @@ class NavBar(QWidget):
         self.top_window.showMinimized()
 
     def f_dock(self):
+        # Called when the dock button is pressed
         self.docked = True
+        # Add the window associated with this nav bar to the dock
         self.top_window = self.dock
         self.dock.addWidget(self.parent_window)
+        # Update windows in the dock
         self.dock.on_dock_change()
+        # Set this nav bar's parent window to be at the top of the stack
         self.dock.setCurrentWidget(self.parent_window)
-        self.clear_layout()
-        self.generate_layout()
 
     def f_undock(self):
         self.docked = False
