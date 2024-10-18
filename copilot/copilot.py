@@ -1,10 +1,7 @@
 import os
 import time
 
-from PyQt6.QtGui import QTextCursor, QPixmap, QImage
-
-from vector3 import Vector3
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QGraphicsView, QPushButton, QProgressBar, QScrollArea
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QRect
@@ -16,11 +13,7 @@ path_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Timer prerequisites
 DURATION_INT = 900
-def secs_to_minsec(secs: int):
-    mins = secs // 60
-    secs = secs % 60
-    minsec = f'{mins:02}:{secs:02}'
-    return minsec
+
 
 class Copilot(Window):
     def __init__(self, *args):
@@ -60,20 +53,19 @@ class Copilot(Window):
         # Timer
 
         self.time_left_int = DURATION_INT
-        self.myTimer = QtCore.QTimer(self)
+        self.my_timer = QtCore.QTimer(self)
 
         self.startTimeButton = self.findChild(QPushButton, "startTimeButton")
-        self.startTimeButton.clicked.connect(self.startTimer)
-        self.stopTimeButton = self.findChild(QPushButton, "stopTimeButton")
-        self.stopTimeButton.clicked.connect(self.stopTimer)
+        self.startTimeButton.clicked.connect(self.start_timer)
+        self.stop_time_button = self.findChild(QPushButton, "stopTimeButton")
+        self.stop_time_button.clicked.connect(self.stop_timer)
         self.remainingTime = self.findChild(QLabel, "remainingTime")
 
-        self.updateTime()
+        self.update_time()
 
         self.progressTimeBar = self.findChild(QProgressBar, "progressTimeBar")
         self.progressTimeBar.setMinimum(0)
         self.progressTimeBar.setMaximum(DURATION_INT)
-
 
         # Actions
 
@@ -92,6 +84,10 @@ class Copilot(Window):
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action.clicked.connect(self.maintain_depth)
 
+        self.reinitialise_cameras_action: QRadioButton = self.findChild(QRadioButton, "ReinitialiseCameras")
+        self.reinitialise_cameras_action.clicked.connect(self.reinitialise_cameras)
+        self.app.camera_initialisation_complete.connect(self.check_camera_initialisation_complete)
+
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
         # Stdout
@@ -99,45 +95,54 @@ class Copilot(Window):
         self.stdout_window: QPlainTextEdit = self.findChild(QPlainTextEdit, "Stdout")
         self.stdout_cursor = self.stdout_window.textCursor()
 
-    # Timer Functions
-
-    def startTimer(self):
-        if not self.myTimer.isActive():
-            try:
-                self.myTimer.timeout.disconnect(self.timerTimeout)
-            except TypeError:
-                pass
-
-            self.myTimer.timeout.connect(self.timerTimeout)
-            self.myTimer.setInterval(1000)
-            self.myTimer.start()
-            self.stopTimeButton.setText("Stop")
-
-    def stopTimer(self):
-        if not self.myTimer.isActive():
-            self.time_left_int = DURATION_INT
-            self.updateTime()
-        self.myTimer.stop()
-        self.stopTimeButton.setText("Reset")
-
-    def timerTimeout(self):
-        self.time_left_int -= 1
-
-        if self.time_left_int == 0:
-            self.stopTimer()
-
-        self.updateTime()
-
-    def updateTime(self):
-        minsec = secs_to_minsec(self.time_left_int)
-        self.remainingTime.setText(minsec)
-        self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
-
         # Tasks
 
         self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
         self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
         self.build_task_widgets()
+
+    # Timer Functions
+
+    @staticmethod
+    def secs_to_minsec(secs: int):
+        mins = secs // 60
+        secs = secs % 60
+        minsec = f'{mins:02}:{secs:02}'
+        return minsec
+
+    def start_timer(self):
+        if not self.my_timer.isActive():
+            try:
+                self.my_timer.timeout.disconnect(self.timer_timeout)
+            except TypeError:
+                pass
+
+            self.my_timer.timeout.connect(self.timer_timeout)
+            self.my_timer.setInterval(1000)
+            self.my_timer.start()
+            self.stop_time_button.setText("Stop")
+
+    def stop_timer(self):
+        if not self.my_timer.isActive():
+            # If the timer is inactive, reset the timer
+            self.time_left_int = DURATION_INT
+            self.app.reset_task_completion()
+            self.update_time()
+        self.my_timer.stop()
+        self.stop_time_button.setText("Reset")
+
+    def timer_timeout(self):
+        self.time_left_int -= 1
+
+        if self.time_left_int == 0:
+            self.stop_timer()
+
+        self.update_time()
+
+    def update_time(self):
+        minsec = Copilot.secs_to_minsec(self.time_left_int)
+        self.remainingTime.setText(minsec)
+        self.progressTimeBar.setValue(DURATION_INT - self.time_left_int)
 
     def build_task_widgets(self):
         list_geometry = self.task_list_contents.geometry()
@@ -148,7 +153,7 @@ class Copilot(Window):
         # Move the task to fit at the correct position in the list
         for i, task in enumerate(self.app.tasks):
             task.setParent(self.task_list_contents)
-            geometry = QRect(0, i*task.height(), list_geometry.width(), task.height())
+            geometry = QRect(0, i * task.height(), list_geometry.width(), task.height())
             task.setGeometry(geometry)
 
     # Action Functions
@@ -183,7 +188,35 @@ class Copilot(Window):
         else:
             print("No longer maintaining depth")
 
-    def set_sonar_value(self, widget: QWidget, value: int, value_max: int = 200):
+    def reinitialise_cameras(self):
+        if self.check_thrusters_action.isChecked():
+            return
+        for feed in self.data.camera_feeds:
+            if feed.initialising:
+                # Camera is
+                return
+            feed.init_attempts = 0
+            feed.start_init_camera_feed()
+
+    def check_camera_initialisation_complete(self):
+        finished = True
+        initialised = True
+        for camera in self.data.camera_feeds:
+            finished = finished and not camera.initialising
+            initialised = initialised and camera.initialised
+        if not finished:
+            return
+
+        if initialised:
+            print("All Cameras Initialised Successfully!")
+        else:
+            print("Some cameras failed to initialise. Try again.")
+
+        self.reinitialise_cameras_action.setChecked(False)
+
+
+    @staticmethod
+    def set_sonar_value(widget: QWidget, value: int, value_max: int = 200):
         if value > value_max:
             widget.setText(f">{value_max} cm")
         else:
@@ -194,7 +227,7 @@ class Copilot(Window):
         adjust = len(self.data.lines_to_add) > 0
         for i in range(len(self.data.lines_to_add)):
             line = self.data.lines_to_add.popleft()
-            self.stdout_window.insertPlainText(line+"\n")
+            self.stdout_window.insertPlainText(line + "\n")
 
         if adjust:
             self.stdout_window.ensureCursorVisible()

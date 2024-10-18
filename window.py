@@ -3,12 +3,11 @@ from typing import TYPE_CHECKING
 from nav_bar.nav_bar import NavBar
 
 if TYPE_CHECKING:
-    from data_interface import DataInterface
     from app import App
 
 from PyQt6 import uic
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import QFrame, QWidget
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QFrame
 from screeninfo.common import Monitor
 
 
@@ -26,6 +25,7 @@ class Window(QFrame):
         self.desired_monitor = monitor  # When undocked, this window will be displayed on this monitor
         # Set window size and load content
         self.setFixedSize(1920, 1080)
+        # Load a .ui file into this window
         uic.loadUi(file, self)
         # Position the window and remove the default window frame
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
@@ -36,7 +36,6 @@ class Window(QFrame):
         self.nav = NavBar(self, dock)
         self.nav.generate_layout()
 
-    @pyqtSlot(QWidget)
     def update_data(self):
         # Each subclass should override this to fit their content
         pass

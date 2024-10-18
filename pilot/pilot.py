@@ -34,7 +34,7 @@ class Pilot(Window):
         self.complete_by_label: QLabel = self.findChild(QLabel, "CompleteBy")
         self.on_task_change()
 
-        self.app.on_task_check.connect(self.on_task_change)
+        self.app.task_checked.connect(self.on_task_change)
 
     def on_task_change(self):
         # Find out which tasks need to be displayed.
@@ -55,17 +55,17 @@ class Pilot(Window):
         self.up_next_title.setText(up_next.title)
         self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
 
-
-
     def update_data(self):
-        for i, c in enumerate(self.cam_info):
+
+        # Update camera feeds for all 3 cameras
+        for i, cam in enumerate(self.cam_info):
             try:
                 frame = self.data.camera_feeds[i]
                 if frame.camera_frame:
-                    rect = c[1].geometry()
-                    c[1].setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+                    rect = cam[1].geometry()
+                    cam[1].setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
                 else:
                     raise IndexError()
             except IndexError:
-                c[1].setText(f"{c[0]} Is Unavailable")
+                cam[1].setText(f"{cam[0]} Is Unavailable")
 
