@@ -95,40 +95,6 @@ class Copilot(Window):
         self.stdout_window: QPlainTextEdit = self.findChild(QPlainTextEdit, "Stdout")
         self.stdout_cursor = self.stdout_window.textCursor()
 
-    # Timer Functions
-
-    def startTimer(self):
-        self.stopTimeButton.setText("Stop")
-        if not self.myTimer.isActive():
-            try:
-                self.myTimer.timeout.disconnect(self.timerTimeout)
-            except TypeError:
-                pass
-
-            self.myTimer.timeout.connect(self.timerTimeout)
-            self.myTimer.setInterval(1000)
-            self.myTimer.start()
-
-    def stopTimer(self):
-        if not self.myTimer.isActive():
-            self.time_left_int = DURATION_INT
-            self.updateTime()
-        self.myTimer.stop()
-        self.stopTimeButton.setText("Reset")
-
-    def timerTimeout(self):
-        self.time_left_int -= 1
-
-        if self.time_left_int == 0:
-            self.stopTimer()
-
-        self.updateTime()
-
-    def updateTime(self):
-        minsec = self.secs_to_minsec(self.time_left_int)
-        self.remainingTime.setText(minsec)
-        self.progressTimeBar.setValue(DURATION_INT-self.time_left_int)
-
         # Tasks
 
         self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
