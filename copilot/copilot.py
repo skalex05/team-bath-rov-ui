@@ -102,6 +102,7 @@ class Copilot(Window):
     # Timer Functions
 
     def startTimer(self):
+        self.stopTimeButton.setText("Stop")
         if not self.myTimer.isActive():
             try:
                 self.myTimer.timeout.disconnect(self.timerTimeout)
@@ -111,7 +112,6 @@ class Copilot(Window):
             self.myTimer.timeout.connect(self.timerTimeout)
             self.myTimer.setInterval(1000)
             self.myTimer.start()
-            self.stopTimeButton.setText("Stop")
 
     def stopTimer(self):
         if not self.myTimer.isActive():
