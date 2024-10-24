@@ -13,7 +13,7 @@ from PyQt6.QtCore import pyqtSignal, QObject
 from float_data import FloatData
 from rov_data import ROVData
 from video_stream import VideoStream
-from vector3 import Vector3
+from data_interface.vector3 import Vector3
 
 if TYPE_CHECKING:
     from window import Window
