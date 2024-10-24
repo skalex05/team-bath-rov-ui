@@ -2,7 +2,7 @@ import os
 
 from PyQt6.QtWidgets import QLabel
 
-from data_interface import DataInterface
+from data_interface.data_interface import DataInterface
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -36,6 +36,10 @@ class Pilot(Window):
 
         self.app.task_checked.connect(self.on_task_change)
 
+    def attach_data_interface(self):
+        self.data = self.app.data_interface
+        self.data.video_stream_update.connect(self.update_video_data)
+
     def on_task_change(self):
         # Find out which tasks need to be displayed.
         # Current and next tasks are not necessarily contiguous
@@ -55,17 +59,15 @@ class Pilot(Window):
         self.up_next_title.setText(up_next.title)
         self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
 
-    def update_data(self):
-
-        # Update camera feeds for all 3 cameras
-        for i, cam in enumerate(self.cam_info):
-            try:
-                frame = self.data.camera_feeds[i]
-                if frame.camera_frame:
-                    rect = cam[1].geometry()
-                    cam[1].setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
-                else:
-                    raise IndexError()
-            except IndexError:
-                cam[1].setText(f"{cam[0]} Is Unavailable")
+    def update_video_data(self, i: int):
+        cam = self.cam_info[i]
+        try:
+            frame = self.data.camera_feeds[i]
+            if frame.camera_frame:
+                rect = cam[1].geometry()
+                cam[1].setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+            else:
+                raise IndexError()
+        except IndexError:
+            cam[1].setText(f"{cam[0]} Is Unavailable")
 

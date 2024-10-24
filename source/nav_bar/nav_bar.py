@@ -68,7 +68,10 @@ class NavBar(QWidget):
         # Add button for closing the program
         self.close_button_widget = QPushButton("Close")
         self.close_button_widget.setMaximumWidth(80)
-        self.close_button_widget.clicked.connect(self.app.close)
+        def on_close():
+            self.app.close()
+
+        self.close_button_widget.clicked.connect(on_close)
         self.layout.addWidget(self.close_button_widget)
 
         self.buttons = QWidget(self)

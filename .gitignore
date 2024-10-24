@@ -82,6 +82,10 @@ target/
 profile_default/
 ipython_config.py
 
+# QT Creator Stuff
+
+team-bath-rov-ui.pyproject.user
+
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
