@@ -1,6 +1,5 @@
 import os
 
-from data_interface import DataInterface
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))

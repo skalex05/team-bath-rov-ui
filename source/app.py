@@ -1,11 +1,11 @@
-from collections.abc import Sequence
+import sys
 from threading import ThreadError
 
 from PyQt6.QtCore import pyqtSignal
 from screeninfo import screeninfo
 
 from copilot.copilot import Copilot
-from data_interface import DataInterface
+from data_interface.data_interface import DataInterface
 from dock import Dock
 from grapher.grapher import Grapher
 from pilot.pilot import Pilot
@@ -13,20 +13,20 @@ from tasks.task import Task
 
 from PyQt6.QtWidgets import QApplication, QWidget
 
-from video_stream import VideoStream
-
 
 class App(QApplication):
     """
         Class for storing about the overall application.
     """
     task_checked = pyqtSignal(QWidget)
-    camera_initialisation_complete = pyqtSignal(VideoStream)
 
-    def __init__(self, *args):
+    def __init__(self, redirect_stdout, redirect_stderr, *args):
         super().__init__(*args)
-        self.data_interface: DataInterface | None = None
         self.closing = False
+
+        # TEMPORARY FOR PROCESS SIMULATION
+        self.rov_data_source_proc = None
+        self.float_data_source_proc = None
 
         # Create the list of tasks the ROV should complete
 
@@ -88,25 +88,38 @@ class App(QApplication):
 
         self.dock.showMaximized()
 
+        windows = [self.pilot_window, self.copilot_window, self.grapher_window]
+        # Create the data interface
+        # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
+        self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
+        for window in windows:
+            window.attach_data_interface()
+
     def reset_task_completion(self):
         for task in self.tasks:
             task.completed = False
 
-    def init_data_interface(self, redirect_stdout, redirect_stderr):
-        windows = [self.pilot_window, self.copilot_window, self.grapher_window]
-        # Create the data interface
-        # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
-        self.data_interface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
-        for window in windows:
-            window.data = self.data_interface
-        # Start the interface to run in a separate thread
-        self.data_interface.start()
-
     def close(self):
+        if self.closing:
+            return
         self.closing = True
+        print("Closing", file=sys.__stdout__, flush=True)
         # Rejoin threads before closing
         try:
-            self.data_interface.join(10)
+            self.data_interface.close()
+            print("Closing data interface threads", file=sys.__stdout__, flush=True)
         except ThreadError:
-            print("Could not close data interface thread.")
+            print("Could not close data interface threads.", file=sys.__stdout__, flush=True)
+        if self.rov_data_source_proc:
+            try:
+                self.rov_data_source_proc.terminate()
+                print("Killed ROV data source", file=sys.__stdout__, flush=True)
+            except Exception as e:
+                print("Couldn't kill ROV data source - ", e, file=sys.__stdout__, flush=True)
+        if self.float_data_source_proc:
+            try:
+                self.float_data_source_proc.terminate()
+                print("Killed Float data source", file=sys.__stdout__, flush=True)
+            except Exception as e:
+                print("Couldn't kill Float data source - ", e, file=sys.__stdout__, flush=True)
         self.quit()

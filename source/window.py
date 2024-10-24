@@ -17,7 +17,6 @@ class Window(QFrame):
         Allows for consistent styling of the windows.
         Specific windows should inherit this class for proper usage.
     """
-    on_update = pyqtSignal()
     def __init__(self, file, app: "App", monitor: Monitor):
         super().__init__()
         self.nav = None
@@ -30,15 +29,13 @@ class Window(QFrame):
         # Position the window and remove the default window frame
         self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.on_update.connect(self.update_data)
 
     def attach_nav_bar(self, dock):
         self.nav = NavBar(self, dock)
         self.nav.generate_layout()
 
-    def update_data(self):
-        # Each subclass should override this to fit their content
-        pass
+    def attach_data_interface(self):
+        self.data = self.app.data_interface
 
     def closeEvent(self, e):
         self.app.close()

@@ -2,18 +2,16 @@ from time import time, sleep
 from threading import Thread
 
 import cv2
-import numpy as np
 from PyQt6.QtGui import QImage, QPixmap
 
 
 class VideoStream:
     max_attempts = 5
 
-    def __init__(self, app, index):
+    def __init__(self, index):
         self.camera_frame = None
         self.camera_feed = None
         self.init_thread = None
-        self.app = app
         self.index = index
         self.width = -1
         self.height = -1
@@ -27,6 +25,7 @@ class VideoStream:
         if self.initialising:
             return
         self.initialising = True
+        self.initialised = False
         self.init_attempts = 0
         self.init_thread = Thread(target=self.init_camera_feed, daemon=True)
         self.init_thread.start()
@@ -45,14 +44,12 @@ class VideoStream:
                 self.init_camera_feed()
             else:
                 self.initialising = False
-                self.app.camera_initialisation_complete.emit(self)
                 print(f"Failed to connect to Cam {self.index + 1}")
             return
         self.height, self.width, self.channels = frame.shape
         print(f"Cam {self.index + 1} initialised successfully!")
         self.initialising = False
         self.initialised = True
-        self.app.camera_initialisation_complete.emit(self)
 
     def update_camera_frame(self):
         if self.camera_feed is None:
