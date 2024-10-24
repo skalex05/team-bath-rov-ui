@@ -261,13 +261,13 @@ class Copilot(Window):
             self.connect_float_action.setChecked(True)
             self.connect_float_action.setText("Disconnect Float")
         else:
-            self.rov_power_action.setChecked(True)
+            self.connect_float_action.setChecked(True)
             print("Disconnecting...")
             self.app.float_data_source_proc.terminate()
             self.app.float_data_source_proc = None
             time.sleep(2)
             print("Disconnected!")
-            self.rov_power_action.setChecked(False)
+            self.connect_float_action.setChecked(False)
             self.connect_float_action.setText("Connect Float")
 
     def update_stdout(self):
