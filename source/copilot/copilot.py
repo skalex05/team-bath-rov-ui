@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea
@@ -6,7 +7,8 @@ from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPush
 from PyQt6 import QtCore
 from PyQt6.QtCore import QRect
 
-from data_interface import DataInterface
+from data_interface.data_interface import DataInterface
+from action_thread import ActionThread
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -17,7 +19,7 @@ DURATION_INT = 900
 
 class Copilot(Window):
     def __init__(self, *args):
-        super().__init__(f"{path_dir}\\copilot.ui", *args)
+        super().__init__(os.path.join(path_dir, "copilot.ui"), *args)
 
         self.data: DataInterface | None = None
 
@@ -47,8 +49,7 @@ class Copilot(Window):
         self.actuator5_value: QLabel = self.findChild(QLabel, "Actuator5Value")
         self.actuator6_value: QLabel = self.findChild(QLabel, "Actuator6Value")
 
-        self.smart_repeater_temp_value: QLabel = self.findChild(QLabel, "SMARTRepeaterTempValue")
-        self.mate_float_depth_value: QLabel = self.findChild(QLabel, "MATEFloatDepthValue")
+        self.float_depth_value: QLabel = self.findChild(QLabel, "MATEFloatDepthValue")
 
         # Timer
 
@@ -70,23 +71,32 @@ class Copilot(Window):
         # Actions
 
         self.recalibrate_imu_action: QRadioButton = self.findChild(QRadioButton, "RecalibrateIMUAction")
-        self.recalibrate_imu_action.clicked.connect(self.recalibrate_imu)
+        self.recalibrate_imu_action_thread = ActionThread(self.recalibrate_imu_action,
+                                                          self.recalibrate_imu)
 
         self.rov_power_action: QRadioButton = self.findChild(QRadioButton, "ROVPowerAction")
-        self.rov_power_action.clicked.connect(self.on_rov_power)
+        self.rov_power_action_thread = ActionThread(self.rov_power_action, retain_state=True,
+                                                    target=self.on_rov_power)
 
         self.check_thrusters_action: QRadioButton = self.findChild(QRadioButton, "CheckThrustersAction")
-        self.check_thrusters_action.clicked.connect(self.check_thrusters)
+        self.check_thrusters_action_thread = ActionThread(self.check_thrusters_action,
+                                                          target=self.check_thrusters)
 
         self.check_actuators_action: QRadioButton = self.findChild(QRadioButton, "CheckActuatorsAction")
-        self.check_actuators_action.clicked.connect(self.check_actuators)
+        self.check_actuators_action_thread = ActionThread(self.check_actuators_action,
+                                                          target=self.check_actuators)
 
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
-        self.maintain_depth_action.clicked.connect(self.maintain_depth)
+        self.maintain_depth_action_thread = ActionThread(self.maintain_depth_action, retain_state=True,
+                                                         target=self.maintain_depth)
 
         self.reinitialise_cameras_action: QRadioButton = self.findChild(QRadioButton, "ReinitialiseCameras")
-        self.reinitialise_cameras_action.clicked.connect(self.reinitialise_cameras)
-        self.app.camera_initialisation_complete.connect(self.check_camera_initialisation_complete)
+        self.reinitialise_cameras_action_thread = ActionThread(self.reinitialise_cameras_action, retain_state=True,
+                                                               target=self.reinitialise_cameras)
+
+        self.connect_float_action: QRadioButton = self.findChild(QRadioButton, "ConnectFloatAction")
+        self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
+                                                                target=self.connect_float)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
@@ -100,6 +110,13 @@ class Copilot(Window):
         self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
         self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
         self.build_task_widgets()
+
+    def attach_data_interface(self):
+        self.data = self.app.data_interface
+        self.data.rov_data_update.connect(self.update_rov_data)
+        self.data.float_data_update.connect(self.update_float_data)
+        self.data.video_stream_update.connect(self.update_video)
+        self.data.stdout_update.connect(self.update_stdout)
 
     # Timer Functions
 
@@ -157,29 +174,37 @@ class Copilot(Window):
             task.setGeometry(geometry)
 
     # Action Functions
-    def recalibrate_imu(self, checked: bool):
+    def recalibrate_imu(self):
         print("Recalibrating...")
         time.sleep(3)
         print("Recalibrated IMU!")
-        self.recalibrate_imu_action.setChecked(False)
 
-    def on_rov_power(self, checked: bool):
-        if checked:
+    def on_rov_power(self):
+        if self.rov_power_action.isChecked():
+            self.rov_power_action.setChecked(False)
+            self.app.rov_data_source_proc = subprocess.Popen(["python.exe", "data_interface//rov_data_source.py"])
+            print("Powering On!")
+            time.sleep(2)
             print("Power On!")
+            self.rov_power_action.setChecked(True)
         else:
+            self.rov_power_action.setChecked(True)
+            print("Powering Off!")
+            self.app.rov_data_source_proc.terminate()
+            self.app.rov_data_source_proc = None
+            time.sleep(2)
             print("Power Off!")
+            self.rov_power_action.setChecked(False)
 
-    def check_thrusters(self, checked: bool):
+    def check_thrusters(self):
         print("Checking Thrusters...")
         time.sleep(3)
         print("Thrusters working correctly")
-        self.recalibrate_imu_action.setChecked(False)
 
-    def check_actuators(self, checked: bool):
+    def check_actuators(self):
         print("Checking Arm Actuators...")
         time.sleep(3)
         print("Arm Actuators working correctly")
-        self.recalibrate_imu_action.setChecked(False)
 
     def maintain_depth(self):
         if self.maintain_depth_action.isChecked():
@@ -189,23 +214,28 @@ class Copilot(Window):
             print("No longer maintaining depth")
 
     def reinitialise_cameras(self):
-        if self.check_thrusters_action.isChecked():
-            return
-        for feed in self.data.camera_feeds:
-            if feed.initialising:
-                # Camera is
-                return
-            feed.init_attempts = 0
-            feed.start_init_camera_feed()
-
-    def check_camera_initialisation_complete(self):
+        # Check cameras aren't already being initialised
         finished = True
-        initialised = True
         for camera in self.data.camera_feeds:
             finished = finished and not camera.initialising
-            initialised = initialised and camera.initialised
-        if not finished:
-            return
+
+        if finished:
+            # User must wait for all cameras to finish reinitialising before starting again
+            for feed in self.data.camera_feeds:
+                if feed.initialising:
+                    return
+
+            for feed in self.data.camera_feeds:
+                feed.start_init_camera_feed()
+
+        finished = False
+        initialised = True
+        while not finished:
+            initialised = True
+            finished = True
+            for camera in self.data.camera_feeds:
+                finished = finished and not camera.initialising
+                initialised = initialised and camera.initialised
 
         if initialised:
             print("All Cameras Initialised Successfully!")
@@ -214,7 +244,6 @@ class Copilot(Window):
 
         self.reinitialise_cameras_action.setChecked(False)
 
-
     @staticmethod
     def set_sonar_value(widget: QWidget, value: int, value_max: int = 200):
         if value > value_max:
@@ -222,7 +251,26 @@ class Copilot(Window):
         else:
             widget.setText(f"{value} cm")
 
-    def update_data(self):
+    def connect_float(self):
+        if self.connect_float_action.isChecked():
+            self.connect_float_action.setChecked(False)
+            self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            print("Connecting...")
+            time.sleep(2)
+            print("Connected!")
+            self.connect_float_action.setChecked(True)
+            self.connect_float_action.setText("Disconnect Float")
+        else:
+            self.connect_float_action.setChecked(True)
+            print("Disconnecting...")
+            self.app.float_data_source_proc.terminate()
+            self.app.float_data_source_proc = None
+            time.sleep(2)
+            print("Disconnected!")
+            self.connect_float_action.setChecked(False)
+            self.connect_float_action.setText("Connect Float")
+
+    def update_stdout(self):
         # Display latest data for window
         adjust = len(self.data.lines_to_add) > 0
         for i in range(len(self.data.lines_to_add)):
@@ -232,41 +280,59 @@ class Copilot(Window):
         if adjust:
             self.stdout_window.ensureCursorVisible()
 
-        t = self.data.attitude
-        self.rov_attitude_value.setText(f"{t.x:<5}°, {t.y:<5}°, {t.z:<5}°")
-        t = self.data.angular_acceleration
-        self.rov_angular_accel_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
-        t = self.data.angular_velocity
-        self.rov_angular_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
-        t = self.data.acceleration
-        self.rov_acceleration_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
-        t = self.data.velocity
-        self.rov_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+    def update_rov_data(self):
+        if self.data.rov_connected:
+            t = self.data.attitude
+            self.rov_attitude_value.setText(f"{t.x:<5}°, {t.y:<5}°, {t.z:<5}°")
+            t = self.data.angular_acceleration
+            self.rov_angular_accel_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            t = self.data.angular_velocity
+            self.rov_angular_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            t = self.data.acceleration
+            self.rov_acceleration_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            t = self.data.velocity
+            self.rov_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
 
-        self.rov_depth_value.setText(f"{self.data.depth} m")
-        self.ambient_water_temp_value.setText(f"{self.data.ambient_pressure}°C")
-        self.ambient_pressure_value.setText(f"{self.data.ambient_pressure} KPa")
-        self.internal_temp_value.setText(f"{self.data.internal_temperature} °C")
+            self.rov_depth_value.setText(f"{self.data.depth} m")
+            self.ambient_water_temp_value.setText(f"{self.data.ambient_pressure}°C")
+            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure} KPa")
+            self.internal_temp_value.setText(f"{self.data.internal_temperature} °C")
 
-        self.set_sonar_value(self.main_sonar_value, self.data.main_sonar)
-        self.set_sonar_value(self.FR_sonar_value, self.data.FR_sonar)
-        self.set_sonar_value(self.FL_sonar_value, self.data.FL_sonar)
-        self.set_sonar_value(self.BR_sonar_value, self.data.BR_sonar)
-        self.set_sonar_value(self.BL_sonar_value, self.data.BL_sonar)
+            self.set_sonar_value(self.main_sonar_value, self.data.main_sonar)
+            self.set_sonar_value(self.FR_sonar_value, self.data.FR_sonar)
+            self.set_sonar_value(self.FL_sonar_value, self.data.FL_sonar)
+            self.set_sonar_value(self.BR_sonar_value, self.data.BR_sonar)
+            self.set_sonar_value(self.BL_sonar_value, self.data.BL_sonar)
 
-        self.actuator1_value.setText(f"{self.data.actuator_1:>3} %")
-        self.actuator2_value.setText(f"{self.data.actuator_2:>3} %")
-        self.actuator3_value.setText(f"{self.data.actuator_3:>3} %")
-        self.actuator4_value.setText(f"{self.data.actuator_4:>3} %")
-        self.actuator5_value.setText(f"{self.data.actuator_5:>3} %")
-        self.actuator6_value.setText(f"{self.data.actuator_6:>3} %")
+            self.actuator1_value.setText(f"{self.data.actuator_1:>3} %")
+            self.actuator2_value.setText(f"{self.data.actuator_2:>3} %")
+            self.actuator3_value.setText(f"{self.data.actuator_3:>3} %")
+            self.actuator4_value.setText(f"{self.data.actuator_4:>3} %")
+            self.actuator5_value.setText(f"{self.data.actuator_5:>3} %")
+            self.actuator6_value.setText(f"{self.data.actuator_6:>3} %")
+        else:
+            pass
 
-        self.smart_repeater_temp_value.setText(f"{self.data.SMART_repeater_temperature} °C")
-        self.mate_float_depth_value.setText(f"{self.data.SMART_repeater_temperature} m")
+            for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
+                          self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
+                          self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
+                          self.main_sonar_value, self.FR_sonar_value, self.FL_sonar_value, self.BR_sonar_value,
+                          self.BL_sonar_value, self.actuator1_value, self.actuator2_value, self.actuator3_value,
+                          self.actuator4_value, self.actuator5_value, self.actuator6_value]:
+                label.setText("ROV Disconnected")
 
         if not self.maintain_depth_action.isChecked():
             self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
 
+    def update_float_data(self):
+        if self.data.float_connected:
+            self.float_depth_value.setText(f"{self.data.float_depth} m")
+        else:
+            self.float_depth_value.setText("Float Disconnected")
+
+    def update_video(self, i: int):
+        if i != 0:
+            return
         try:
             frame = self.data.camera_feeds[0]
             if frame.camera_frame:

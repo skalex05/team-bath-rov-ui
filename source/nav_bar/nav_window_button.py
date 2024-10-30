@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QPushButton
 
 if TYPE_CHECKING:
     from nav_bar.nav_bar import NavBar
-    from window import Window
+    from source.window import Window
 
 
 class NavWindowButton(QPushButton):

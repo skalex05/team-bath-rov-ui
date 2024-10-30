@@ -45,7 +45,9 @@ Install all dependencies to the project by running the following in the project 
 
 Code can either be run in your code editor or from QT Creator by running `main.py`.
 
-Note: QT Creator may require you to specify what file it should initially run.
+The project directory for your chosen editor should be within the `/source` folder.
+
+**Note**: QT Creator may require you to specify a run configuration in which case yours should look like the following:
 
 The script attribute should refer to `main.py`
 ![](README-IMAGES/qtcreatorrunsetup.png)
@@ -66,6 +68,7 @@ Other widget objects should contain an attribute referencing to this app object 
 - Timer
 - References to each `Window` Widget
 - Reference to the `Dock` Widget
+- Information about processes that send "dummy" data to the UI (Temporary)
 
 **Signals:**
 
@@ -74,7 +77,7 @@ Other widget objects should contain an attribute referencing to this app object 
 
 **Methods:**
 
-- `close()` - Closes all windows associated with the application and joins all external threads.
+- `close()` - Closes all windows associated with the application, joins all external threads, closes all associated processes.
 - `init_data_interface(redirect_stdout, redirect_stderr)` - Starts the `DataInterface` object in a new thread and sets a reference in each window to this object, so they can access it.
 - `reset_task_completion()` - Sets all the tasks to incomplete.
 
@@ -89,21 +92,79 @@ This object inherits `QWidget` and is used to store information about a particul
 
 ## DataInterface Object
 
-***Note:***
+The `DataInterface` is used to store the current state of the ROV/Float, stdout from the UI and from the ROV and ROV video streams.
+This object centrally manages multiple threads, which are each responsible of processing data from a socket connection. 
+Each thread will **emit** a different **signal** when new data is recieved/connction is lost.
+Each thread will connect to its own **socket** with a unique **port** number.
 
-*Currently, the `DataInterface` randomly generates information about the ROV.
-This needs to be amended so that the `DataInterface` communicates with an external process via a **socket** to retrieve data.
-Of course, a separate process can be used to send random data via a **socket** for now. 
-But the framework should be in place so when the ROV is available, we can simply connect the **socket** someplace else.*
+A **socket** may be of type `SOCK_STREAM` which uses **TCP** to transfer data. Use this when it is neccessary **all** data should be recieved.
+A **socket** may insteda use type `SOCK_DGRAM` which uses **UDP**. Use this where packet loss is acceptable and not all data needs to be recieved.
 
-****
+- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SOCK_DGRAM`
+- `Float Data Thread` - Emits `float_data_update` - **Port 52526** - `SOCK_DGRAM`
+- `Video Stream Thread`(s - One for each video stream) - SOCKETS NOT YET IMPLEMENTED
+- `Stdout Thread` - SOCKET NOT YET IMPLEMENTED
 
-The `DataInterface` is used to store the current state of the ROV/Float as well as additional data that may have been collected from them.
-This object runs in a second thread for the lifetime of the UI. Whenever new data is ready, each `Window`'s `on_update` (`pyqtSignal`) is **emitted**.
+**Signals:**
+
+These sockets can be connceted to by windows if they are supposed to display information from `DataInterface`
+
+- `rov_data_update()`
+- `float_data_update()`
+- `video_stream_update()`
+- `stdout_update()`
 
 **Methods:**
 
-- `run` - Continuously retrieve data and video from the ROV/Float (60 times per second). Redirected **stdout** is printed to the console and it is added to the `DataInterface`'s `lines_to_add` argument. This is referenced by the `Copilot` to display **stdout** in the window.  
+Each Thread has it's own function that it runs which are contained inside this class:
+
+- `f_rov_data_thread()` - Updates `DataInterface` attributes to the values to the newest `ROVData`recieved.
+- `f_float_data_thread()` - Updates `DataInterface` attributes to the values to the newest `FloatData`recieved.
+- `f_video_stream_thread()` - Calls `update_camera_frame()` for each `VideoStream`
+- `f_stdout_thread()` - Currently just moves stdout from a redirected output buffer into another buffer that is consumed by the `Copilot` window to display new stdout.
+
+- `close()`
+
+## ROVData
+
+This is a **pickleable** object containing metrics from the ROV which are sent across a socket to be recieved by the UI process.
+
+Attribute names in `ROVData` must match exactly to a corresponding attibute in `DataInterface`.
+
+**Attributes:**
+
+- `attitude`
+- `angular_acceleration`
+- `angular_velocity`
+- `acceleration`
+- `velocity`
+- `depth`
+- `ambient_temperature`
+- `ambient_pressure`
+- `internal_temperature `
+
+- `main_sonar`
+- `FL_sonar`
+- `FR_sonar`
+- `BR_sonar`
+- `BL_sonar`
+
+- `actuator_1`
+- `actuator_2`
+- `actuator_3`
+- `actuator_4`
+- `actuator_5`
+- `actuator_6`
+
+## FloatData
+
+This is a **pickleable** object containing metrics from the Float which are sent across a socket to be recieved by the UI process.
+
+Attribute names in `FloatData` must match exactly to a corresponding attibute in `DataInterface`.
+
+**Attributes:**
+
+- `float_depth`
 
 ## VideoStream Object
 
@@ -144,19 +205,10 @@ The `__init__` method takes three arguments:
 - app - The `App` parent to this window. The window can reference this to get global data.
 - monitor - A `Monitor` object from the `screeninfo` library. This is used to determine which monitor the window should appear on at launch.
 
-The window object contains a `pyqtSignal` called `on_update`.
-This acts as an event which causes the `update_data` event to be triggered 
-(This is triggered by the `DataInterface` whenever there is new data to present).
-Each subclass of `Window` should override this method so it can update widgets in that window.
-
-**Signals:**
-
-- `on_update` - Raised when the `DataInterface` has new data.
-
 **Methods:**
 
 - `attach_nav_bar()` - Used on startup by the `App` object to build the window's `NavBar`
-- `update_data()` - Event handler for when the `DataInterface` has new data, indicated by the emission of the `on_update` signal.
+- `attach_data_interface()` - Should be overridden by subclasses if their window requires connecting to `DataInterface` signals.
 - `close_event()` - Triggered by the window closing. If a window closes, so should the entire app.
 
 ## Dock Widget
@@ -197,7 +249,8 @@ For docked windows, the navbar will list all other docked windows that the user 
 In the below sections are more details about the implementation of each of the three windows in the application.
 
 The bulk of most of these subclasses contain mostly trivial, repetitive defining of attributes for accessing widgets using `self.findChild()` (See example in the `Window` section above for more info).
-This is also true for the `update_data` methods these classes provide. This documentation will focus more on the unique features of each subclass.
+
+These should override `attach_data_interface` if a window requires connecting to a `DataInterface` signal.
 
 # Pilot Window
 
@@ -210,12 +263,19 @@ This is also true for the `update_data` methods these classes provide. This docu
 - A 3D model of the ROV
 - Timer
 
-It connects to the `App`'s `task_checked` signal where `on_task_change` is called.
+
+**Signal Connections:**
+
+-  `App` `task_checked()` -> `on_task_change()`
+- `DataInterface` `video_stream_update(i)` -> `update_video_data(i)`
+
+
 
 **Methods:**
 
 - `on_task_change()` - The current and next tasks are retrieved and all associated widgets are updated. Current and next tasks are not necessarily contiguous.
-- `update_data()` - Each camera is updated to display the latest video frames.
+- `attach_data_interface()` - Connects to `DataInterface` signals.
+- `update_video_data()` - Called when the `video_stream_update` signal is emmitted. Displays the new frame on the UI for the *i*th camera. 
 
 # Copilot Window
 
@@ -230,6 +290,13 @@ It connects to the `App`'s `task_checked` signal where `on_task_change` is calle
 - Task Checklist
 - Timer
 
+**Signal Connections:**
+
+- `DataInterface` `rov_data_update` -> `update_rov_data`
+- `DataInterface` `float_data_update` -> `update_float_data`
+- `DataInterface` `video_stream_update` -> `update_video`
+- `DataInterface` `stdout_update` -> `update_stdout`
+
 **Methods:**
 
 - `secs_to_minsec(secs)` - Formats an integer **secs** into a string of form **"mm:ss"**
@@ -241,12 +308,26 @@ It connects to the `App`'s `task_checked` signal where `on_task_change` is calle
 - `reinitalise_cameras()` - Called when the associated `Action` button is pressed. Each `VideoStream` is re-initialised with `start_init_camera_feed()`
 - `check_camera_initialisation_complete()` - Connected to `App`'s `camera_initialisation_complete` signal which is emitted from a `VideoStream` when it successfully initialises. This checks if all `VideoStreams` are finishing trying to initialise so the `Action` button can be unchecked.
 - `set_sonar_value(widget, value, value_max` - Set sonar widgets's text to "<vale> cm". If the value exceeds *value_max* then "<value_max> cm" is displayed instead.
-- `update_data()` - Sets all values for the sensor data panel, consumes `lines_to_add` from the `DataInterface` to display new *stdout* lines and displays the main camera frame.
+- `update_stdout()` - Consumes the `lines_to_add` attribute of `DataInterface` and appends it to the stdout UI widget.
+- `update_rov_data()` - If the ROV is connected, it will display the latest values stored in `DataInterface`. Otherwise, all ROV attributes will display "ROV Disconnected".
+- `update_float_data()` - If the Float is connected, it will display the latest values stored in `DataInterface`. Otherwise, all Float attributes will display "Float Disconnected."
+- `update_video()` - Called when the `video_stream_update` signal is emmitted. Displays the new frame on the UI for the main camera. Any other camera event is ignored.
 
-The following `Action` methods are **NOT FULLY IMPLEMENTED** yet but are called when their associated `Action` button is pressed.
-- `recalibrate_imu` - **NOT FULLY IMPLEMENTED**
-- `on_rov_power` - **NOT FULLY IMPLEMENTED**
-- `check_thrusters` - **NOT FULLY IMPLEMENTED**
-- `check_actuators` - **NOT FULLY IMPLEMENTED**
-- `maintain_depth` - **NOT FULLY IMPLEMENTED**
+### ActionThread
+
+This class inherits from Thread.
+
+Actions are functions that the user can perform in the UI when a `QRadioButton` is pressed.
+These may take some time to complete and so they run **asynchronously** to the main thead to prevent freezing.
+
+A new action can assigned using the `ActionThread` class.
+
+E.g.
+![](README-IMAGES/actionthread.png)
+
+`ActionThread` takes two required arguments and one optional argument:
+
+- action - The `QRadioButton` to bind to.
+- target - The main function which should run when the `action` is clicked.
+- retain_state(optional. defaults to **False**) - If set to **True**, the action is togglable. 
 
