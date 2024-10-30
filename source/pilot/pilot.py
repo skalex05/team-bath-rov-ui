@@ -33,11 +33,15 @@ class Pilot(Window):
         self.complete_by_label: QLabel = self.findChild(QLabel, "CompleteBy")
         self.on_task_change()
 
+        self.rpb_perc: QLabel = self.findChild(QLabel, "rpb_perc")
+        self.rpb_kpa: QLabel = self.findChild(QLabel, "rpb_kpa")
+
         self.app.task_checked.connect(self.on_task_change)
 
     def attach_data_interface(self):
         self.data = self.app.data_interface
         self.data.video_stream_update.connect(self.update_video_data)
+        self.data.rov_data_update.connect(self.rpb_sync)
 
     def on_task_change(self):
         # Find out which tasks need to be displayed.
@@ -70,3 +74,17 @@ class Pilot(Window):
         except IndexError:
             cam[1].setText(f"{cam[0]} Is Unavailable")
 
+    def rpb_sync(self):
+        self.stylesheet_pressure = """
+        #RPB_PATH{
+            background-color: qconicalgradient(cx:0.5, cy:0.5, angle:90, stop:{CW_STOP_1} rgba(85, 255, 255, 255), stop:{CW_STOP_2} rgba(0, 0, 124, 255));
+        }"""
+
+        value_kpa = self.data.ambient_pressure
+        value_perc = (value_kpa-100)/50
+        val1 = (1-value_perc)
+        value1 = str(val1 - 0.001)
+        self.new_stylesheet_pressure = self.stylesheet_pressure.replace("{CW_STOP_1}",value1).replace("{CW_STOP_2}",str(val1))
+        self.RPB_PATH.setStyleSheet(self.new_stylesheet_pressure)
+        self.rpb_perc.setText(f"{round(value_perc*100)}{'%'}")
+        self.rpb_kpa.setText(str(value_kpa))

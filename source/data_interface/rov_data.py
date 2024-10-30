@@ -54,7 +54,7 @@ class ROVData:
         self.velocity = rand_vector3(-5, 5, 2)
         self.depth = rand_float_range(0.5, 2.5, 2)
         self.ambient_temperature = rand_float_range(23, 27, 2)
-        self.ambient_pressure = rand_float_range(18, 21, 2)
+        self.ambient_pressure = rand_float_range(100, 130, 2)
         self.internal_temperature = rand_float_range(40, 70, 1)
 
         self.main_sonar = rand_float_range(0, 500, 1)
