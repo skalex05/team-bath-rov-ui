@@ -10,7 +10,7 @@ path_dir = os.path.dirname(os.path.realpath(__file__))
 
 class Pilot(Window):
     def __init__(self, *args):
-        super().__init__(f"{path_dir}\\pilot.ui", *args)
+        super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
 
         self.data: DataInterface | None = None
 

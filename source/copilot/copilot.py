@@ -19,7 +19,7 @@ DURATION_INT = 900
 
 class Copilot(Window):
     def __init__(self, *args):
-        super().__init__(f"{path_dir}\\copilot.ui", *args)
+        super().__init__(os.path.join(path_dir, "copilot.ui"), *args)
 
         self.data: DataInterface | None = None
 
