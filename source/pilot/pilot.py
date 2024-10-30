@@ -19,7 +19,6 @@ class Pilot(Window):
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
         self.secondary_1_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView1")
         self.secondary_2_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView2")
-
         self.cam_info = [
             ("Main Camera", self.main_cam),
             ("Secondary Camera 1", self.secondary_1_cam),

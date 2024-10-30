@@ -254,7 +254,10 @@ class Copilot(Window):
     def connect_float(self):
         if self.connect_float_action.isChecked():
             self.connect_float_action.setChecked(False)
-            self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            try:
+                self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            except FileNotFoundError:
+                self.app.float_data_source_proc = subprocess.Popen(["python3", "data_interface//float_data_source.py"])
             print("Connecting...")
             time.sleep(2)
             print("Connected!")

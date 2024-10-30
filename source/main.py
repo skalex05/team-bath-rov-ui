@@ -1,7 +1,7 @@
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
-
+import traceback
 from app import App
 
 # Create the thread that will organise real time data
