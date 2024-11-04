@@ -102,8 +102,8 @@ A **socket** may insteda use type `SOCK_DGRAM` which uses **UDP**. Use this wher
 
 - `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SOCK_DGRAM`
 - `Float Data Thread` - Emits `float_data_update` - **Port 52526** - `SOCK_DGRAM`
-- `Video Stream Thread`(s - One for each video stream) - SOCKETS NOT YET IMPLEMENTED
-- `Stdout Thread` - SOCKET NOT YET IMPLEMENTED
+- `Video Stream Thread`(s - One for each video stream) - Emits `video_stream_update(int)` -  **Port 52524**/**Port 52523**/**Port 52522** - `SOCK_STREAM`
+- `Stdout Thread` - Emits `stdout_update(StdoutType, str)` - **Port 52535**
 
 **Signals:**
 
@@ -111,19 +111,28 @@ These sockets can be connceted to by windows if they are supposed to display inf
 
 - `rov_data_update()`
 - `float_data_update()`
-- `video_stream_update()`
-- `stdout_update()`
+- `video_stream_update(int)`
+- `stdout_update(StdoutType, str)`
 
 **Methods:**
 
 Each Thread has it's own function that it runs which are contained inside this class:
 
-- `f_rov_data_thread()` - Updates `DataInterface` attributes to the values to the newest `ROVData`recieved.
-- `f_float_data_thread()` - Updates `DataInterface` attributes to the values to the newest `FloatData`recieved.
-- `f_video_stream_thread()` - Calls `update_camera_frame()` for each `VideoStream`
-- `f_stdout_thread()` - Currently just moves stdout from a redirected output buffer into another buffer that is consumed by the `Copilot` window to display new stdout.
+- `f_rov_data_thread()` - Updates `DataInterface` attributes to the values to the newest `ROVData`recieved by the `ROV Data Thread`. Emits the `rov_data_update()` signal.
+- `f_float_data_thread()` - Updates `DataInterface` attributes to the values to the newest `FloatData`recieved by the `Float Data Thread`. Emits the `float_data_update()` signal.
+- `f_video_stream_thread()` - Listens for new frames being sent across via several `Video Stream Thread`s. Emits `video_stream_update(int)` when a new frame is recieved for camera *i*.
+- `f_stdout_thread()` - Captures internal UI stdout and listens for stdout from the ROV via the `StdoutThread`. Emits the `stdout_update(StdoutType, str)` signal.
 
 - `close()`
+
+## StdoutTypes
+
+This is an enum class to help represent the types of `stdout` that should be displayed in the window. This includes the following:
+
+- `UI` - General stdout from UI processes will have this type.
+- `UI ERR` - Internal errors within the UI will have this type.
+- `ROV` - General stdout sent across the stdout socket for the ROV.
+- `ROV ERR` - Any errors reported from the ROV via the stdout socket.
 
 ## ROVData
 
@@ -133,28 +142,28 @@ Attribute names in `ROVData` must match exactly to a corresponding attibute in `
 
 **Attributes:**
 
-- `attitude`
-- `angular_acceleration`
-- `angular_velocity`
-- `acceleration`
-- `velocity`
-- `depth`
-- `ambient_temperature`
-- `ambient_pressure`
-- `internal_temperature `
-
-- `main_sonar`
-- `FL_sonar`
-- `FR_sonar`
-- `BR_sonar`
-- `BL_sonar`
-
-- `actuator_1`
-- `actuator_2`
-- `actuator_3`
-- `actuator_4`
-- `actuator_5`
-- `actuator_6`
+- `attitude` - Vector3
+- `angular_acceleration` - Vector3
+- `angular_velocity` - Vector3
+- `acceleration` - Vector3
+- `velocity` - Vector3
+- `depth` - float
+- `ambient_temperature` - float
+- `ambient_pressure` - float
+- `internal_temperature ` - float
+- `cardinal_direction` - float
+- `grove_water_sensor` - float
+- `main_sonar` - float
+- `FL_sonar` - float
+- `FR_sonar` - float
+- `BR_sonar` - float
+- `BL_sonar` - float
+- `actuator_1` - float
+- `actuator_2` - float
+- `actuator_3` - float
+- `actuator_4` - float
+- `actuator_5` - float
+- `actuator_6` - float
 
 ## FloatData
 
@@ -164,30 +173,28 @@ Attribute names in `FloatData` must match exactly to a corresponding attibute in
 
 **Attributes:**
 
-- `float_depth`
+- `float_depth` - float
 
 ## VideoStream Object
 
-*Note:*
-
-*Some of this code may need to be altered/moved to the ROV itself when video feed is received from the ROV rather than from local webcams.*
-
-****
-
 This is used to store information related to the camera feeds on the ROV.
 
-The key argument of this object is the `camera_frame` which stores a **numpy**-style 2D array of pixels of what the video feed is currently receiving.
-This is not to be confused with `camera_feed` which is a `cv2.VideoCapture` object to read frames from.
+The key argument of this object is the `camera_frame` which stores a 3D **numpy** array of pixels of shape `height,width,channels` of what the video feed is currently receiving.
+This is not to be confused with `camera_feed` which is a `cv2.VideoCapture` object to read frames from. 
+
+The array stored in `camera_frame` is sent across a socket where it is recieved by the `DataInterface` and the UI is updated acordingly.
 
 **Methods:**
 
 - `start_init_camera_feed()` - This creates a thread which runs `init_camera_feed()`
 - `init_camera_feed()` - This function attempts to read a frame from the `camera_feed`. If it is successful, it will **emit** the `camera_initialised` signal in the `App` object. Otherwise, it will attempt several more times by recursively calling the function until a maximum number of attempts is reached. At which point, the user must press the `Reinitialise Cameras` action to restart this process. 
 - `update_camera_frame()` - The data in `camera_frame` is updated with the newest data read from `camera_feed` *(Note: Testing is needed to see what happens when an initialised camera feed suddenly becomes unavailable. Program should identify and deal with this gracefully beyond just flooding the console with "Could not read...")*
-- `generate_pixmap(target_width, target_height)` - translates the `camera_frame` into a `QPixmap` object of a desired size. Aspect ratio of the image is maintained.
+- `generate_pixmap(camera_frame, target_width, target_height)` - a static method for translating a 3D numpy array `camera_frame` into a `QPixmap` object of a desired size. Aspect ratio of the image is maintained.
 ## Window Widget
 
-Each window is a frameless, full screen window (1920x1080) that can be moved around to different monitors using the `NavBar` at the top of the screen.
+*NOTE: Current implementation only supports 1920x1080 displays. This needs to be modified.*
+
+Each window is a frameless, full screen window (1920x1080) that can be moved around to different monitors using the `NavBar` at the top of the screen. A window will automatically reposition itself to ensure the entire window is visible. 
 
 The `Window` class is a subclasses of `QFrame`s and is a container for all UI content within a window. 
 The `Window` class should not be used directly but only through the subclasses `Pilot`,`Copilot` and`Grapher`. 
@@ -308,7 +315,7 @@ These should override `attach_data_interface` if a window requires connecting to
 - `reinitalise_cameras()` - Called when the associated `Action` button is pressed. Each `VideoStream` is re-initialised with `start_init_camera_feed()`
 - `check_camera_initialisation_complete()` - Connected to `App`'s `camera_initialisation_complete` signal which is emitted from a `VideoStream` when it successfully initialises. This checks if all `VideoStreams` are finishing trying to initialise so the `Action` button can be unchecked.
 - `set_sonar_value(widget, value, value_max` - Set sonar widgets's text to "<vale> cm". If the value exceeds *value_max* then "<value_max> cm" is displayed instead.
-- `update_stdout()` - Consumes the `lines_to_add` attribute of `DataInterface` and appends it to the stdout UI widget.
+- `update_stdout(source, line)` - Writes a new line to the `stdout_window` and preappends the stdout source of this line.
 - `update_rov_data()` - If the ROV is connected, it will display the latest values stored in `DataInterface`. Otherwise, all ROV attributes will display "ROV Disconnected".
 - `update_float_data()` - If the Float is connected, it will display the latest values stored in `DataInterface`. Otherwise, all Float attributes will display "Float Disconnected."
 - `update_video()` - Called when the `video_stream_update` signal is emmitted. Displays the new frame on the UI for the main camera. Any other camera event is ignored.

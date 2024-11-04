@@ -550,47 +550,6 @@
      </widget>
     </item>
     <item row="2" column="0">
-     <widget class="QRadioButton" name="CheckThrustersAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>200</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Check Thrusters</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QRadioButton" name="CheckActuatorsAction">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>150</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="contextMenuPolicy">
-       <enum>Qt::ContextMenuPolicy::NoContextMenu</enum>
-      </property>
-      <property name="text">
-       <string>Check Actuators</string>
-      </property>
-      <property name="autoExclusive">
-       <bool>false</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
      <widget class="QRadioButton" name="MaintainDepthAction">
       <property name="enabled">
        <bool>true</bool>
@@ -609,7 +568,7 @@
       </property>
      </widget>
     </item>
-    <item row="3" column="1">
+    <item row="2" column="1">
      <widget class="QRadioButton" name="ReinitialiseCameras">
       <property name="enabled">
        <bool>true</bool>
@@ -628,20 +587,7 @@
       </property>
      </widget>
     </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="label_2">
-      <property name="minimumSize">
-       <size>
-        <width>200</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="0">
+    <item row="3" column="0">
      <widget class="QRadioButton" name="ConnectFloatAction">
       <property name="minimumSize">
        <size>
@@ -651,6 +597,19 @@
       </property>
       <property name="text">
        <string>Connect to Float</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="label_2">
+      <property name="minimumSize">
+       <size>
+        <width>200</width>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="text">
+       <string/>
       </property>
      </widget>
     </item>
@@ -664,6 +623,12 @@
      <width>1121</width>
      <height>321</height>
     </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Consolas</family>
+     <pointsize>10</pointsize>
+    </font>
    </property>
    <property name="verticalScrollBarPolicy">
     <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>

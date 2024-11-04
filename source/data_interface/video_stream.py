@@ -1,3 +1,4 @@
+import sys
 from time import time, sleep
 from threading import Thread
 
@@ -34,7 +35,13 @@ class VideoStream:
         print(f"Initialising Cam {self.index + 1}")
         self.camera_feed = cv2.VideoCapture(self.index)
         ret, frame = self.camera_feed.read()
-        if not ret:
+        if ret:
+            self.height, self.width, self.channels = frame.shape
+            print(f"Cam {self.index + 1} initialised successfully!")
+            self.initialising = False
+            self.camera_frame = frame
+            self.initialised = True
+        else:
             print(f"Could not read from Cam {self.index + 1}")
             self.camera_feed = None
             if self.init_attempts < VideoStream.max_attempts:
@@ -46,10 +53,6 @@ class VideoStream:
                 self.initialising = False
                 print(f"Failed to connect to Cam {self.index + 1}")
             return
-        self.height, self.width, self.channels = frame.shape
-        print(f"Cam {self.index + 1} initialised successfully!")
-        self.initialising = False
-        self.initialised = True
 
     def update_camera_frame(self):
         if self.camera_feed is None:
@@ -59,11 +62,12 @@ class VideoStream:
             print(f"Could not read from Cam {self.index + 1}")
             self.camera_feed = None
             return
-        self.camera_frame = QImage(frame,
-                                   self.width, self.height, self.width * self.channels, QImage.Format.Format_BGR888)
 
-    def generate_pixmap(self, target_width, target_height):
-        pixmap = QPixmap.fromImage(self.camera_frame)
+        self.camera_frame = frame
+
+    @staticmethod
+    def generate_pixmap(camera_frame, target_width, target_height):
+        pixmap = QPixmap.fromImage(camera_frame)
         # Ensure image fits available space as best as possible.
         pixmap = pixmap.scaledToHeight(target_height)
         if pixmap.width() > target_width:

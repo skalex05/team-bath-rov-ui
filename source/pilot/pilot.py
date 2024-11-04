@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QLabel
 
 from data_interface.data_interface import DataInterface
 from window import Window
+from data_interface.video_stream import VideoStream
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -66,13 +67,14 @@ class Pilot(Window):
         cam = self.cam_info[i]
         try:
             frame = self.data.camera_feeds[i]
-            if frame.camera_frame:
+            if frame is not None:
                 rect = cam[1].geometry()
-                cam[1].setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+
+                cam[1].setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
             else:
                 raise IndexError()
         except IndexError:
-            cam[1].setText(f"{cam[0]} Is Unavailable")
+            cam[1].setText(f"{cam[0]} Disconnected")
 
     def rpb_sync(self):
         self.stylesheet_pressure = """

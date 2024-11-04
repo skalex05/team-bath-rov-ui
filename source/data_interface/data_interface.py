@@ -1,19 +1,20 @@
 import io
 import pickle
+import struct
 import sys
-from collections import deque
 from collections.abc import Sequence
-from socket import socket, AF_INET, SOCK_DGRAM
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 from threading import Thread
 from typing import TYPE_CHECKING
 import time
 
 from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtGui import QImage
 
 from float_data import FloatData
 from rov_data import ROVData
-from video_stream import VideoStream
-from data_interface.vector3 import Vector3
+from vector3 import Vector3
+from stdout_type import StdoutType
 
 if TYPE_CHECKING:
     from window import Window
@@ -27,22 +28,18 @@ class DataInterface(QObject):
     rov_data_update = pyqtSignal()
     float_data_update = pyqtSignal()
     video_stream_update = pyqtSignal(int)
-    stdout_update = pyqtSignal()
+    stdout_update = pyqtSignal(StdoutType, str)
 
     def __init__(self, app: "App", windows: Sequence["Window"],
                  redirect_stdout: io.StringIO, redirect_stderr: io.StringIO):
         super().__init__()
         self.app = app
         self.windows = windows
-        self.camera_feed_count = 1
+        self.camera_feed_count = 3
 
         # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
-
-        # Stdout Data
-
-        self.lines_to_add = deque(maxlen=10)  # Queue of lines that need to be appended to the UI
 
         # ROV Data
 
@@ -76,12 +73,12 @@ class DataInterface(QObject):
 
         # Camera Feeds
 
-        self.camera_feeds: [VideoStream] = []
+        self.camera_feeds = []
         self.camera_threads: [Thread] = []
         # Start Threads
 
         for i in range(self.camera_feed_count):
-            self.camera_feeds.append(VideoStream(i))
+            self.camera_feeds.append(None)
             cam_thread = Thread(target=self.f_video_stream_thread, args=(i,))
             self.camera_threads.append(cam_thread)
             cam_thread.start()
@@ -99,7 +96,7 @@ class DataInterface(QObject):
         data_server = socket(AF_INET, SOCK_DGRAM)
         data_server.bind(("localhost", 52525))
         data_server.setblocking(False)
-        data_server.settimeout(1)
+        data_server.settimeout(2)
         while not self.app.closing:
             try:
                 payload_bytes, addr = data_server.recvfrom(1024)
@@ -140,21 +137,61 @@ class DataInterface(QObject):
             self.float_data_update.emit()
 
     def f_video_stream_thread(self, i):
+        video_server = socket(AF_INET, SOCK_STREAM)
+        video_server.bind(("localhost", 52524 - i))
+        video_server.settimeout(2)
+        self.video_stream_update.emit(i)
+
+        def handshake():
+            while not self.app.closing:
+                try:
+                    # Handshake frame size
+                    video_server.listen()
+                    con, addr = video_server.accept()
+                    size = con.recv(8)
+                    size = struct.unpack("Q", size)[0]
+                    pack = struct.pack("Q", size)
+                    con.send(pack)
+                    print(f"Camera {i + 1} Connected")
+                    return con, size
+                except TimeoutError:
+                    pass
+            return None, None
+
+        conn, frame_size = handshake()
+        data = b""
         while not self.app.closing:
-            self.camera_feeds[i].update_camera_frame()
-            self.video_stream_update.emit(i)
-            time.sleep(0.0167)
+            # Get frame
+            try:
+                while len(data) < frame_size:
+                    data += conn.recv(4096)
+
+                frame = data[:frame_size]
+                data = data[frame_size:]
+                frame = pickle.loads(frame)
+                height, width, channels = frame.shape
+                self.camera_feeds[i] = QImage(frame, width, height, channels * width, QImage.Format.Format_BGR888)
+                self.video_stream_update.emit(i)
+            except ConnectionError:
+                self.camera_feeds[i] = None
+                self.video_stream_update.emit(i)
+                conn, frame_size = handshake()
+            except TimeoutError:
+                pass
 
     def f_stdout_thread(self):
+        stdout_server = socket(AF_INET, SOCK_STREAM)
+        stdout_server.bind(("localhost", 52535))
+        stdout_server.settimeout(0.5)
+
+        conn, _ = None, None
         while not self.app.closing:
             # Process redirected stdout
             self.redirect_stdout.flush()
-            update = False
             if self.redirect_stdout != sys.__stdout__:
                 lines = self.redirect_stdout.getvalue().splitlines()
                 for line in lines:
-                    update = True
-                    self.lines_to_add.append(line)
+                    self.stdout_update.emit(StdoutType.UI, line)
                     print(line, file=sys.__stdout__)
                 self.redirect_stdout.seek(0)
                 self.redirect_stdout.truncate(0)
@@ -164,15 +201,24 @@ class DataInterface(QObject):
             if self.redirect_stderr != sys.__stderr__:
                 lines = self.redirect_stderr.getvalue().splitlines()
                 for line in lines:
-                    self.lines_to_add.append(line)
-                    update = True
+                    self.stdout_update.emit(StdoutType.UI_ERROR, line)
                     print(line, file=sys.__stderr__)
                 self.redirect_stderr.seek(0)
                 self.redirect_stderr.truncate(0)
 
-            if update:
-                self.stdout_update.emit()
-
+            try:
+                try:
+                    if conn is None:
+                        raise ConnectionError()
+                    source, line = pickle.loads(conn.recv(1024), fix_imports=False)
+                    self.stdout_update.emit(source, line)
+                except ConnectionError:
+                    stdout_server.listen()
+                    conn, _ = stdout_server.accept()
+            except TimeoutError:
+                pass
+            except Exception as e:
+                print(e, file=self.redirect_stderr)
             time.sleep(0.0167)
 
     def close(self):
