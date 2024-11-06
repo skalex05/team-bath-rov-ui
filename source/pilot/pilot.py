@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtWidgets import QLabel, QProgressBar
 
 from data_interface.data_interface import DataInterface
 from window import Window
@@ -37,12 +37,18 @@ class Pilot(Window):
         self.rpb_perc: QLabel = self.findChild(QLabel, "rpb_perc")
         self.rpb_kpa: QLabel = self.findChild(QLabel, "rpb_kpa")
 
+        self.temp_value: QLabel = self.findChild(QLabel, "temp_value")
+        self.progressTempBar = self.findChild(QProgressBar, "temp_bar")
+        self.progressTempBar.setMinimum(20)
+        self.progressTempBar.setMaximum(30)
+
         self.app.task_checked.connect(self.on_task_change)
 
     def attach_data_interface(self):
         self.data = self.app.data_interface
         self.data.video_stream_update.connect(self.update_video_data)
         self.data.rov_data_update.connect(self.rpb_sync)
+        self.data.rov_data_update.connect(self.temp_sync)
 
     def on_task_change(self):
         # Find out which tasks need to be displayed.
@@ -82,10 +88,19 @@ class Pilot(Window):
         }"""
 
         value_kpa = self.data.ambient_pressure
-        value_perc = (value_kpa-100)/50
+        if not self.data.rov_connected:
+            value_perc = 0
+            value_kpa = 0
+        else:
+            value_perc = (value_kpa-100)/50
         val1 = (1-value_perc)
         value1 = str(val1 - 0.001)
         self.new_stylesheet_pressure = self.stylesheet_pressure.replace("{CW_STOP_1}",value1).replace("{CW_STOP_2}",str(val1))
         self.RPB_PATH.setStyleSheet(self.new_stylesheet_pressure)
         self.rpb_perc.setText(f"{round(value_perc*100)}{'%'}")
-        self.rpb_kpa.setText(str(value_kpa))
+        self.rpb_kpa.setText(f"{round(value_kpa)}{' kPa'}")
+
+    def temp_sync(self):
+        value_temp = self.data.ambient_temperature
+        self.progressTempBar.setValue(int(value_temp))
+        self.temp_value.setText(f"{round(value_temp)}")
