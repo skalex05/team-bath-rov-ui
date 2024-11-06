@@ -269,7 +269,7 @@ class Copilot(Window):
             self.rov_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
 
             self.rov_depth_value.setText(f"{self.data.depth} m")
-            self.ambient_water_temp_value.setText(f"{self.data.ambient_pressure}°C")
+            self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature}°C")
             self.ambient_pressure_value.setText(f"{self.data.ambient_pressure} KPa")
             self.internal_temp_value.setText(f"{self.data.internal_temperature} °C")
 
