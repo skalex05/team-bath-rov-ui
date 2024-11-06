@@ -32,7 +32,6 @@ class VideoSource(Thread):
                     self.feed.update_camera_frame()
                     frame_bytes = pickle.dumps(self.feed.camera_frame)
                     client_socket.sendall(frame_bytes)
-                    time.sleep(0.0167)
             except ConnectionRefusedError:
                 pass
             except ConnectionAbortedError:
