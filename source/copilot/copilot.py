@@ -179,9 +179,7 @@ class Copilot(Window):
                 ex = "python.exe"
             else:
                 ex = "python3"
-            self.app.rov_data_source_proc = subprocess.Popen([ex, "data_interface//rov_data_source.py"])
-            self.app.video_source_proc = subprocess.Popen([ex, "data_interface//video_source.py"])
-            self.app.stdout_source_proc = subprocess.Popen([ex, "data_interface//rov_stdout_source.py"])
+            self.app.rov_data_source_proc = subprocess.Popen([ex, "data_interface//rov_dummy.py"])
             print("Powering On!")
             time.sleep(2)
             print("Power On!")
@@ -191,10 +189,6 @@ class Copilot(Window):
             print("Powering Off!")
             self.app.rov_data_source_proc.terminate()
             self.app.rov_data_source_proc = None
-            self.app.video_source_proc.terminate()
-            self.app.video_source_proc = None
-            self.app.stdout_source_proc.terminate()
-            self.app.stdout_source_proc = None
             time.sleep(2)
             print("Power Off!")
             self.rov_power_action.setChecked(False)

@@ -97,13 +97,11 @@ This object centrally manages multiple threads, which are each responsible of pr
 Each thread will **emit** a different **signal** when new data is recieved/connction is lost.
 Each thread will connect to its own **socket** with a unique **port** number.
 
-A **socket** may be of type `SOCK_STREAM` which uses **TCP** to transfer data. Use this when it is neccessary **all** data should be recieved.
-A **socket** may insteda use type `SOCK_DGRAM` which uses **UDP**. Use this where packet loss is acceptable and not all data needs to be recieved.
-
-- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SOCK_DGRAM`
-- `Float Data Thread` - Emits `float_data_update` - **Port 52526** - `SOCK_DGRAM`
 - `Video Stream Thread`(s - One for each video stream) - Emits `video_stream_update(int)` -  **Port 52524**/**Port 52523**/**Port 52522** - `SOCK_STREAM`
-- `Stdout Thread` - Emits `stdout_update(StdoutType, str)` - **Port 52535**
+- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SOCK_DGRAM` < **This needs to be changed to work with `SOCK_STREAM`**
+- `ROV Controller Input Thread` - No Emission - **Port 52526** - `SOCK_STREAM`
+- `Stdout Thread` - Emits `stdout_update(StdoutType, str)` - **Port 52535** - `SOCK_STREAM`
+- `Float Data Thread` - Emits `float_data_update` - **Port 52625** - `SOCK_DGRAM` < **This needs to be changed to work with `SOCK_STREAM`**
 
 **Signals:**
 
