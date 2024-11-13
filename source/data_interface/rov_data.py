@@ -27,6 +27,8 @@ class ROVData:
         self.ambient_temperature = 0
         self.ambient_pressure = 0
         self.internal_temperature = 0
+        self.cardinal_direction = 0
+        self.grove_water_sensor = 0
 
         self.main_sonar = 0
         self.FL_sonar = 0
