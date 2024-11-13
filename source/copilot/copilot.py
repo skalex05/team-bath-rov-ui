@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, QMessageBox
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QRect
@@ -98,6 +98,9 @@ class Copilot(Window):
         self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
                                                                 target=self.connect_float)
 
+        self.reset_alerts_action: QRadioButton = self.findChild(QRadioButton, "ResetAlerts")
+        self.reset_alerts_action_thread = ActionThread(self.reset_alerts_action, self.reset_alerts)
+
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
         # Stdout
@@ -117,6 +120,15 @@ class Copilot(Window):
         self.data.float_data_update.connect(self.update_float_data)
         self.data.video_stream_update.connect(self.update_video)
         self.data.stdout_update.connect(self.update_stdout)
+
+        # Alert connect
+        self.data.attitude_alert.connect(self.alert_attitude)
+        self.data.depth_alert.connect(self.alert_depth)
+        self.data.ambient_pressure_alert.connect(self.alert_ambient_pressure)
+        self.data.ambient_temperature_alert.connect(self.alert_ambient_temperature)
+        self.data.internal_temperature_alert.connect(self.alert_internal_temperature)
+        self.data.float_depth_alert.connect(self.alert_float_depth)
+
 
     # Timer Functions
 
@@ -244,6 +256,18 @@ class Copilot(Window):
 
         self.reinitialise_cameras_action.setChecked(False)
 
+    def reset_alerts(self):
+        self.data.attitude_alert_once = False
+        self.data.depth_alert_once = False
+        self.data.ambient_temperature_alert_once = False
+        self.data.ambient_pressure_alert_once = False
+        self.data.internal_temperature_alert_once = False
+        self.data.float_depth_alert_once = False
+        # Uncheck button trick
+        self.reset_alerts_action.setAutoExclusive(False)
+        self.reset_alerts_action.setChecked(False)
+        self.reset_alerts_action.setAutoExclusive(True)
+
     @staticmethod
     def set_sonar_value(widget: QWidget, value: int, value_max: int = 200):
         if value > value_max:
@@ -310,6 +334,7 @@ class Copilot(Window):
             self.actuator4_value.setText(f"{self.data.actuator_4:>3} %")
             self.actuator5_value.setText(f"{self.data.actuator_5:>3} %")
             self.actuator6_value.setText(f"{self.data.actuator_6:>3} %")
+
         else:
             pass
 
@@ -344,3 +369,22 @@ class Copilot(Window):
             self.main_cam.setText("Main Camera Is Unavailable")
 
         self.update()
+
+    # Alert messages, need upgrade
+    def alert_attitude(self):
+        QMessageBox.warning(self, "Warning", "attitude")
+
+    def alert_depth(self):
+        QMessageBox.warning(self, "Warning", "depth")
+
+    def alert_ambient_pressure(self):
+        QMessageBox.warning(self, "Warning", "ambient pressure")
+
+    def alert_ambient_temperature(self):
+        QMessageBox.warning(self, "Warning", "ambient temperature")
+
+    def alert_internal_temperature(self):
+        QMessageBox.warning(self, "Warning", "internal temperature")
+
+    def alert_float_depth(self):
+        QMessageBox.warning(self, "Warning", "float depth")

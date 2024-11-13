@@ -15,6 +15,7 @@ def rand_vector3(a: int | float, b: int | float, dp: int = None):
         rand_float_range(a, b, dp)
     )
 
+
 class ROVData:
     def __init__(self):
         self.attitude = Vector3(0, 0, 0)  # pitch, yaw, roll

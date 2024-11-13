@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from window import Window
     from app import App
 
+
 class DataInterface(QObject):
     """
         Stores information about the ROV/Float/Etc.
@@ -28,6 +29,14 @@ class DataInterface(QObject):
     float_data_update = pyqtSignal()
     video_stream_update = pyqtSignal(int)
     stdout_update = pyqtSignal()
+
+    # ALERT SIGNALS
+    attitude_alert = pyqtSignal()
+    depth_alert = pyqtSignal()
+    ambient_temperature_alert = pyqtSignal()
+    ambient_pressure_alert = pyqtSignal()
+    internal_temperature_alert = pyqtSignal()
+    float_depth_alert = pyqtSignal()
 
     def __init__(self, app: "App", windows: Sequence["Window"],
                  redirect_stdout: io.StringIO, redirect_stderr: io.StringIO):
@@ -96,6 +105,14 @@ class DataInterface(QObject):
         self.stdout_thread = Thread(target=self.f_stdout_thread)
         self.stdout_thread.start()
 
+        # Alerts that already appeared once
+        self.attitude_alert_once = False
+        self.depth_alert_once = False
+        self.ambient_temperature_alert_once = False
+        self.ambient_pressure_alert_once = False
+        self.internal_temperature_alert_once = False
+        self.float_depth_alert_once = False
+
     def f_rov_data_thread(self):
         data_server = socket(AF_INET, SOCK_DGRAM)
         data_server.bind(("localhost", 52525))
@@ -116,6 +133,29 @@ class DataInterface(QObject):
                 self.__setattr__(attr, rov_data.__getattribute__(attr))
 
             self.rov_data_update.emit()
+
+            # Alert conditional popups
+            if not self.attitude_alert_once and ((self.attitude.x > 45 or self.attitude.x < -45) or
+                                                 (self.attitude.y > 360 or self.attitude.y < 0) or
+                                                 (self.attitude.x > 5 or self.attitude.x < -5)):
+                self.attitude_alert.emit()
+                self.attitude_alert_once = True
+
+            if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
+                self.depth_alert.emit()
+                self.depth_alert_once = True
+
+            if not self.ambient_temperature_alert_once and (self.ambient_temperature < 24 or self.ambient_temperature > 28):
+                self.ambient_temperature_alert.emit()
+                self.ambient_temperature_alert_once = True
+
+            if not self.ambient_pressure_alert_once and self.ambient_pressure > 129:
+                self.ambient_pressure_alert.emit()
+                self.ambient_pressure_alert_once = True
+
+            if not self.internal_temperature_alert_once and self.internal_temperature > 69:
+                self.internal_temperature_alert.emit()
+                self.internal_temperature_alert_once = True
 
             time.sleep(0.0167)
 
@@ -139,6 +179,11 @@ class DataInterface(QObject):
                 self.__setattr__(attr, float_data.__getattribute__(attr))
 
             self.float_data_update.emit()
+
+            # Alert conditional popups
+            if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
+                self.float_depth_alert.emit()
+                self.float_depth_alert_once = True
 
     def f_video_stream_thread(self, i):
         while not self.app.closing:
