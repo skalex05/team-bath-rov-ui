@@ -2,11 +2,13 @@ import io
 import pickle
 import struct
 import sys
+import traceback
 from collections.abc import Sequence
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 from threading import Thread
 from typing import TYPE_CHECKING
 import time
+import pygame
 
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtGui import QImage
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
     from window import Window
     from app import App
 
+ROV_IP = "localhost"
+FLOAT_IP = "localhost"
 
 class DataInterface(QObject):
     """
@@ -85,6 +89,10 @@ class DataInterface(QObject):
         self.camera_feeds = []
         self.camera_threads: [Thread] = []
 
+        # Controller State
+
+        self.controller_state = None
+
         # Start Threads
 
         for i in range(self.camera_feed_count):
@@ -102,6 +110,10 @@ class DataInterface(QObject):
         self.stdout_thread = Thread(target=self.f_stdout_thread)
         self.stdout_thread.start()
 
+
+        self.controller_input_thread = Thread(target=self.f_controller_input_thread)
+        self.controller_input_thread.start()
+
         # Alerts that already appeared once
         self.attitude_alert_once = False
         self.depth_alert_once = False
@@ -112,7 +124,7 @@ class DataInterface(QObject):
 
     def f_rov_data_thread(self):
         data_server = socket(AF_INET, SOCK_DGRAM)
-        data_server.bind(("localhost", 52525))
+        data_server.bind((ROV_IP, 52525))
         data_server.setblocking(False)
         data_server.settimeout(2)
         while not self.app.closing:
@@ -158,7 +170,7 @@ class DataInterface(QObject):
 
     def f_float_data_thread(self):
         data_server = socket(AF_INET, SOCK_DGRAM)
-        data_server.bind(("localhost", 52526))
+        data_server.bind((FLOAT_IP, 52625))
         data_server.setblocking(False)
         data_server.settimeout(1)
         while not self.app.closing:
@@ -176,6 +188,7 @@ class DataInterface(QObject):
                 self.__setattr__(attr, float_data.__getattribute__(attr))
 
             self.float_data_update.emit()
+        time.sleep(0.01)
 
             # Alert conditional popups
             if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
@@ -184,7 +197,7 @@ class DataInterface(QObject):
 
     def f_video_stream_thread(self, i):
         video_server = socket(AF_INET, SOCK_STREAM)
-        video_server.bind(("localhost", 52524 - i))
+        video_server.bind((ROV_IP, 52524 - i))
         video_server.settimeout(2)
         self.video_stream_update.emit(i)
 
@@ -227,7 +240,7 @@ class DataInterface(QObject):
 
     def f_stdout_thread(self):
         stdout_server = socket(AF_INET, SOCK_STREAM)
-        stdout_server.bind(("localhost", 52535))
+        stdout_server.bind((ROV_IP, 52535))
         stdout_server.settimeout(0.5)
 
         conn, _ = None, None
@@ -256,7 +269,7 @@ class DataInterface(QObject):
                 try:
                     if conn is None:
                         raise ConnectionError()
-                    source, line = pickle.loads(conn.recv(1024), fix_imports=False)
+                    source, line = pickle.loads(conn.recv(1024))
                     self.stdout_update.emit(source, line)
                 except ConnectionError:
                     stdout_server.listen()
@@ -266,6 +279,58 @@ class DataInterface(QObject):
             except Exception as e:
                 print(e, file=self.redirect_stderr)
             time.sleep(0.0167)
+
+    def f_controller_input_thread(self):
+        input_client = None
+
+        pygame.init()
+
+        joystick = None
+
+        while not self.app.closing:
+            time.sleep(0.01)
+            for event in pygame.event.get():
+                if event.type == pygame.JOYDEVICEADDED:
+                    pygame.joystick.init()
+                    joystick = pygame.joystick.Joystick(0)
+                    joystick.init()
+                elif event.type == pygame.JOYDEVICEREMOVED:
+                    joystick.quit()
+                    joystick = None
+
+            if joystick is None:
+                continue
+
+            if input_client is None:
+                try:
+                    input_client = socket(AF_INET, SOCK_STREAM)
+                    input_client.connect(("localhost", 52526))
+                except ConnectionError:
+                    input_client = None
+                    continue
+
+            try:
+                new_state = {
+                    "axes": [joystick.get_axis(i) for i in range(joystick.get_numaxes())],
+                    "buttons": [joystick.get_button(i) for i in range(joystick.get_numbuttons())],
+                    "hats": [joystick.get_hat(i) for i in range(joystick.get_numhats())]
+                }
+                print(new_state)
+                if self.controller_state == new_state:
+                    continue
+
+                try:
+                    self.controller_state = new_state
+                    payload = pickle.dumps((self.controller_state, time.time()))
+                    input_client.send(payload)
+                except ConnectionError as e:
+                    print("ERR", e)
+
+                time.sleep(0.01)
+            except Exception as e:
+                print(traceback.format_exc(e))
+
+        pygame.quit()
 
     def close(self):
         self.rov_data_thread.join(10)

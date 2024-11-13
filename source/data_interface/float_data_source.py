@@ -16,7 +16,7 @@ while 1:
     try:
         float_data.randomise()
         payload = pickle.dumps(float_data)
-        data_client.sendto(payload, ("localhost", 52526))
+        data_client.sendto(payload, ("localhost", 52625))
         i += 1
     except ConnectionError:
         print("ERR")

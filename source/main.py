@@ -5,7 +5,7 @@ from app import App
 
 # Create the thread that will organise real time data
 
-DEBUG = False  # STDOUT will not be displayed in the UI.
+DEBUG = False  # STDOUT will not be displayed in the UI when set to True.
 
 # Catch standard output
 if DEBUG:
