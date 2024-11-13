@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame
+from PyQt6.QtWidgets import QFrame, QApplication, QGraphicsView, QGraphicsScene
 from screeninfo.common import Monitor
 
 
@@ -22,12 +22,19 @@ class Window(QFrame):
         self.nav = None
         self.app = app
         self.desired_monitor = monitor  # When undocked, this window will be displayed on this monitor
-        # Set window size and load content
-        self.setFixedSize(1920, 1080)
+
         # Load a .ui file into this window
         uic.loadUi(file, self)
         # Position the window and remove the default window frame
-        self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
+        #self.resize(1920, 1080)
+        
+        # self.setGeometry(monitor.x, monitor.y, monitor.width, 1080)
+        #change to monitor width monitor height and adjust qt grid layout
+        #print window size
+
+        print(1920, 1080)
+    
+
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
     def attach_nav_bar(self, dock):
@@ -39,4 +46,3 @@ class Window(QFrame):
 
     def closeEvent(self, e):
         self.app.close()
-
