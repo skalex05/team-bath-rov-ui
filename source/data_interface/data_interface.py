@@ -7,8 +7,11 @@ from socket import socket, AF_INET, SOCK_DGRAM
 from threading import Thread
 from typing import TYPE_CHECKING
 import time
+import cv2
+import numpy as np
 
 from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtGui import QImage
 
 from float_data import FloatData
 from rov_data import ROVData
@@ -78,6 +81,11 @@ class DataInterface(QObject):
 
         self.camera_feeds: [VideoStream] = []
         self.camera_threads: [Thread] = []
+
+        self.overlay_image = cv2.imread("data_interface/test.png", cv2.IMREAD_UNCHANGED)
+        self.overlay_image_resized = None
+
+
         # Start Threads
 
         for i in range(self.camera_feed_count):
@@ -142,8 +150,63 @@ class DataInterface(QObject):
     def f_video_stream_thread(self, i):
         while not self.app.closing:
             self.camera_feeds[i].update_camera_frame()
+
+            if i == 0:
+                frame_qimage = self.camera_feeds[i].camera_frame
+                if frame_qimage is not None:
+                    frame = self.qimage_to_numpy(frame_qimage)
+
+                    frame_with_overlay = self.apply_overlay(frame)
+
+                    frame_qimage = QImage(frame_with_overlay.data, frame_with_overlay.shape[1], frame_with_overlay.shape[0],
+                                          frame_with_overlay.strides[0], QImage.Format.Format_BGR888)
+
+                    self.camera_feeds[i].camera_frame = frame_qimage
+
             self.video_stream_update.emit(i)
             time.sleep(0.0167)
+
+    def qimage_to_numpy(self, qimage):
+        qimage = qimage.convertToFormat(QImage.Format.Format_RGB888)
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(qimage.sizeInBytes())
+        arr = np.array(ptr).reshape(height, width, 3)
+        arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        return arr
+
+    def apply_overlay(self, frame):
+        if self.overlay_image is None:
+            return frame
+
+        if self.overlay_image_resized is None or self.overlay_image_resized.shape[:2] != frame.shape[:2]:
+            self.overlay_image_resized = cv2.resize(self.overlay_image, (frame.shape[1], frame.shape[0]),
+                                                    interpolation=cv2.INTER_AREA)
+
+        overlay_image = self.rotate_overlay(self.overlay_image_resized, self.attitude.y)
+
+        if overlay_image.shape[2] == 4:
+            overlay_color = overlay_image[:, :, :3]
+            alpha_mask = overlay_image[:, :, 3] / 255.0
+
+            alpha_inv = 1.0 - alpha_mask
+            for c in range(0, 3):
+                frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                  alpha_inv * frame[:, :, c])
+        else:
+            frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+
+        return frame
+
+    def rotate_overlay(self, image, angle):
+        (h, w) = image.shape[:2]
+        center = (w // 2, h // 2)
+
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_TRANSPARENT)
+        return rotated
 
     def f_stdout_thread(self):
         while not self.app.closing:
