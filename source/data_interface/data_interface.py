@@ -190,10 +190,10 @@ class DataInterface(QObject):
             self.float_data_update.emit()
         time.sleep(0.01)
 
-            # Alert conditional popups
-            if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
-                self.float_depth_alert.emit()
-                self.float_depth_alert_once = True
+        # Alert conditional popups
+        if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
+            self.float_depth_alert.emit()
+            self.float_depth_alert_once = True
 
     def f_video_stream_thread(self, i):
         video_server = socket(AF_INET, SOCK_STREAM)
@@ -294,9 +294,11 @@ class DataInterface(QObject):
                     pygame.joystick.init()
                     joystick = pygame.joystick.Joystick(0)
                     joystick.init()
+                    print("Controller Connected")
                 elif event.type == pygame.JOYDEVICEREMOVED:
                     joystick.quit()
                     joystick = None
+                    print("Controller Disconnected")
 
             if joystick is None:
                 continue
@@ -315,7 +317,6 @@ class DataInterface(QObject):
                     "buttons": [joystick.get_button(i) for i in range(joystick.get_numbuttons())],
                     "hats": [joystick.get_hat(i) for i in range(joystick.get_numhats())]
                 }
-                print(new_state)
                 if self.controller_state == new_state:
                     continue
 
