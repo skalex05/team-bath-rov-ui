@@ -26,7 +26,9 @@ class App(QApplication):
 
         # TEMPORARY FOR PROCESS SIMULATION
         self.rov_data_source_proc = None
+        self.video_source_proc = None
         self.float_data_source_proc = None
+        self.stdout_source_proc = None
 
         # Create the list of tasks the ROV should complete
 
@@ -126,7 +128,19 @@ class App(QApplication):
         if self.float_data_source_proc:
             try:
                 self.float_data_source_proc.terminate()
-                print("Killed Float data source", file=sys.__stdout__, flush=True)
+                print("Killed float data source", file=sys.__stdout__, flush=True)
             except Exception as e:
-                print("Couldn't kill Float data source - ", e, file=sys.__stdout__, flush=True)
+                print("Couldn't kill float data source - ", e, file=sys.__stdout__, flush=True)
+        if self.video_source_proc:
+            try:
+                self.video_source_proc.terminate()
+                print("Killed video source", file=sys.__stdout__, flush=True)
+            except Exception as e:
+                print("Couldn't video data source - ", e, file=sys.__stdout__, flush=True)
+        if self.stdout_source_proc:
+            try:
+                self.stdout_source_proc.terminate()
+                print("Killed stdout source", file=sys.__stdout__, flush=True)
+            except Exception as e:
+                print("Couldn't video data source - ", e, file=sys.__stdout__, flush=True)
         self.quit()

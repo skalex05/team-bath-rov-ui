@@ -6,8 +6,9 @@ from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPush
 
 from PyQt6.QtCore import QRect
 
-from data_interface.data_interface import DataInterface
+from data_interface.data_interface import DataInterface, StdoutType
 from action_thread import ActionThread
+from data_interface.video_stream import VideoStream
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -75,14 +76,6 @@ class Copilot(Window):
         self.rov_power_action: QRadioButton = self.findChild(QRadioButton, "ROVPowerAction")
         self.rov_power_action_thread = ActionThread(self.rov_power_action, retain_state=True,
                                                     target=self.on_rov_power)
-
-        self.check_thrusters_action: QRadioButton = self.findChild(QRadioButton, "CheckThrustersAction")
-        self.check_thrusters_action_thread = ActionThread(self.check_thrusters_action,
-                                                          target=self.check_thrusters)
-
-        self.check_actuators_action: QRadioButton = self.findChild(QRadioButton, "CheckActuatorsAction")
-        self.check_actuators_action_thread = ActionThread(self.check_actuators_action,
-                                                          target=self.check_actuators)
 
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action_thread = ActionThread(self.maintain_depth_action, retain_state=True,
@@ -192,7 +185,13 @@ class Copilot(Window):
     def on_rov_power(self):
         if self.rov_power_action.isChecked():
             self.rov_power_action.setChecked(False)
-            self.app.rov_data_source_proc = subprocess.Popen(["python.exe", "data_interface//rov_data_source.py"])
+            if os.name == "nt":
+                ex = "python.exe"
+            else:
+                ex = "python3"
+            self.app.rov_data_source_proc = subprocess.Popen([ex, "data_interface//rov_data_source.py"])
+            self.app.video_source_proc = subprocess.Popen([ex, "data_interface//video_source.py"])
+            self.app.stdout_source_proc = subprocess.Popen([ex, "data_interface//rov_stdout_source.py"])
             print("Powering On!")
             time.sleep(2)
             print("Power On!")
@@ -202,19 +201,13 @@ class Copilot(Window):
             print("Powering Off!")
             self.app.rov_data_source_proc.terminate()
             self.app.rov_data_source_proc = None
+            self.app.video_source_proc.terminate()
+            self.app.video_source_proc = None
+            self.app.stdout_source_proc.terminate()
+            self.app.stdout_source_proc = None
             time.sleep(2)
             print("Power Off!")
             self.rov_power_action.setChecked(False)
-
-    def check_thrusters(self):
-        print("Checking Thrusters...")
-        time.sleep(3)
-        print("Thrusters working correctly")
-
-    def check_actuators(self):
-        print("Checking Arm Actuators...")
-        time.sleep(3)
-        print("Arm Actuators working correctly")
 
     def maintain_depth(self):
         if self.maintain_depth_action.isChecked():
@@ -225,33 +218,8 @@ class Copilot(Window):
 
     def reinitialise_cameras(self):
         # Check cameras aren't already being initialised
-        finished = True
-        for camera in self.data.camera_feeds:
-            finished = finished and not camera.initialising
-
-        if finished:
-            # User must wait for all cameras to finish reinitialising before starting again
-            for feed in self.data.camera_feeds:
-                if feed.initialising:
-                    return
-
-            for feed in self.data.camera_feeds:
-                feed.start_init_camera_feed()
-
-        finished = False
-        initialised = True
-        while not finished:
-            initialised = True
-            finished = True
-            for camera in self.data.camera_feeds:
-                finished = finished and not camera.initialising
-                initialised = initialised and camera.initialised
-
-        if initialised:
-            print("All Cameras Initialised Successfully!")
-        else:
-            print("Some cameras failed to initialise. Try again.")
-
+        print("Reinitialise Cameras Action Not Implemented", file=self.data.redirect_stderr)
+        time.sleep(1)
         self.reinitialise_cameras_action.setChecked(False)
 
     def reset_alerts(self):
@@ -276,7 +244,10 @@ class Copilot(Window):
     def connect_float(self):
         if self.connect_float_action.isChecked():
             self.connect_float_action.setChecked(False)
-            self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            try:
+                self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            except FileNotFoundError:
+                self.app.float_data_source_proc = subprocess.Popen(["python3", "data_interface//float_data_source.py"])
             print("Connecting...")
             time.sleep(2)
             print("Connected!")
@@ -292,15 +263,19 @@ class Copilot(Window):
             self.connect_float_action.setChecked(False)
             self.connect_float_action.setText("Connect Float")
 
-    def update_stdout(self):
+    def update_stdout(self, source, line):
         # Display latest data for window
-        adjust = len(self.data.lines_to_add) > 0
-        for i in range(len(self.data.lines_to_add)):
-            line = self.data.lines_to_add.popleft()
-            self.stdout_window.insertPlainText(line + "\n")
+        if source == StdoutType.UI:
+            line = "[UI] - " + line
+        elif source == StdoutType.UI_ERROR:
+            line = "[UI ERR] - " + line
+        elif source == StdoutType.ROV:
+            line = "[ROV] - " + line
+        elif source == StdoutType.ROV_ERROR:
+            line = "[ROV ERR] - " + line
 
-        if adjust:
-            self.stdout_window.ensureCursorVisible()
+        self.stdout_window.insertPlainText(line + "\n")
+        self.stdout_window.ensureCursorVisible()
 
     def update_rov_data(self):
         if self.data.rov_connected:
@@ -358,13 +333,13 @@ class Copilot(Window):
             return
         try:
             frame = self.data.camera_feeds[0]
-            if frame.camera_frame:
+            if frame:
                 rect = self.main_cam.geometry()
-                self.main_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+                self.main_cam.setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
             else:
                 raise IndexError()
         except IndexError:
-            self.main_cam.setText("Main Camera Is Unavailable")
+            self.main_cam.setText("Main Camera Disconnected")
 
         self.update()
 
