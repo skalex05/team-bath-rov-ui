@@ -251,91 +251,6 @@
      </widget>
     </item>
     <item row="11" column="0" colspan="2">
-     <widget class="QLabel" name="SonarData">
-      <property name="font">
-       <font>
-        <pointsize>16</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Sonar Data</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item row="12" column="0">
-     <widget class="QLabel" name="MainSonar">
-      <property name="text">
-       <string>Main Cam Sonar</string>
-      </property>
-     </widget>
-    </item>
-    <item row="12" column="1">
-     <widget class="QLabel" name="MainSonarValue">
-      <property name="text">
-       <string>0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="13" column="0">
-     <widget class="QLabel" name="FLSonar">
-      <property name="text">
-       <string>Forward Left Sonar</string>
-      </property>
-     </widget>
-    </item>
-    <item row="13" column="1">
-     <widget class="QLabel" name="FLSonarValue">
-      <property name="text">
-       <string>0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="14" column="0">
-     <widget class="QLabel" name="FRSonar">
-      <property name="text">
-       <string>Forward Right Sonar</string>
-      </property>
-     </widget>
-    </item>
-    <item row="14" column="1">
-     <widget class="QLabel" name="FRSonarValue">
-      <property name="text">
-       <string>0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="15" column="0">
-     <widget class="QLabel" name="BRSonar">
-      <property name="text">
-       <string>Back Right Sonar</string>
-      </property>
-     </widget>
-    </item>
-    <item row="15" column="1">
-     <widget class="QLabel" name="BRSonarValue">
-      <property name="text">
-       <string>0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="16" column="0">
-     <widget class="QLabel" name="BLSonar">
-      <property name="text">
-       <string>Back Left Sonar</string>
-      </property>
-     </widget>
-    </item>
-    <item row="16" column="1">
-     <widget class="QLabel" name="BLSonarValue">
-      <property name="text">
-       <string>0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="17" column="0" colspan="2">
      <widget class="QLabel" name="ActuatorData">
       <property name="font">
        <font>
@@ -350,91 +265,91 @@
       </property>
      </widget>
     </item>
-    <item row="18" column="0">
+    <item row="12" column="0">
      <widget class="QLabel" name="Actuator1">
       <property name="text">
        <string>Actuator 1</string>
       </property>
      </widget>
     </item>
-    <item row="18" column="1">
+    <item row="12" column="1">
      <widget class="QLabel" name="Actuator1Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="19" column="0">
+    <item row="13" column="0">
      <widget class="QLabel" name="Actuator2">
       <property name="text">
        <string>Actuator 2</string>
       </property>
      </widget>
     </item>
-    <item row="19" column="1">
+    <item row="13" column="1">
      <widget class="QLabel" name="Actuator2Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="20" column="0">
+    <item row="14" column="0">
      <widget class="QLabel" name="Actuator3">
       <property name="text">
        <string>Actuator 3</string>
       </property>
      </widget>
     </item>
-    <item row="20" column="1">
+    <item row="14" column="1">
      <widget class="QLabel" name="Actuator3Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="21" column="0">
+    <item row="15" column="0">
      <widget class="QLabel" name="Actuator4">
       <property name="text">
        <string>Actuator 4</string>
       </property>
      </widget>
     </item>
-    <item row="21" column="1">
+    <item row="15" column="1">
      <widget class="QLabel" name="Actuator4Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="22" column="0">
+    <item row="16" column="0">
      <widget class="QLabel" name="Actuator5">
       <property name="text">
        <string>Actuator 5</string>
       </property>
      </widget>
     </item>
-    <item row="22" column="1">
+    <item row="16" column="1">
      <widget class="QLabel" name="Actuator5Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="23" column="0">
+    <item row="17" column="0">
      <widget class="QLabel" name="Actuator6">
       <property name="text">
        <string>Actuator 6</string>
       </property>
      </widget>
     </item>
-    <item row="23" column="1">
+    <item row="17" column="1">
      <widget class="QLabel" name="Actuator6Value">
       <property name="text">
        <string>0</string>
       </property>
      </widget>
     </item>
-    <item row="24" column="0" colspan="2">
+    <item row="18" column="0" colspan="2">
      <widget class="QLabel" name="PeripheralData">
       <property name="font">
        <font>
@@ -449,14 +364,14 @@
       </property>
      </widget>
     </item>
-    <item row="25" column="0">
+    <item row="19" column="0">
      <widget class="QLabel" name="MateFloatDepth">
       <property name="text">
        <string>MATE Float Depth</string>
       </property>
      </widget>
     </item>
-    <item row="25" column="1">
+    <item row="19" column="1">
      <widget class="QLabel" name="MATEFloatDepthValue">
       <property name="text">
        <string>0</string>
@@ -561,7 +476,7 @@
        </size>
       </property>
       <property name="text">
-       <string>Maintain Depth (0)</string>
+       <string>Maintain Depth</string>
       </property>
       <property name="autoExclusive">
        <bool>false</bool>
