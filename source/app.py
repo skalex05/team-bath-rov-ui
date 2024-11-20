@@ -94,6 +94,13 @@ class App(QApplication):
         for window in windows:
             window.attach_data_interface()
 
+        dark_theme = """
+            Window {
+                background-color:rgb(30,30,30);
+            }
+        """
+        self.setStyleSheet(dark_theme)
+
     def reset_task_completion(self):
         for task in self.tasks:
             task.completed = False
