@@ -2,9 +2,9 @@ import os
 
 from PyQt6.QtWidgets import QLabel, QProgressBar
 
-from data_interface.data_interface import DataInterface
+from datainterface.data_interface import DataInterface
 from window import Window
-from data_interface.video_stream import VideoStream
+from datainterface.video_stream import VideoStream
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -89,7 +89,7 @@ class Pilot(Window):
         }"""
 
         value_kpa = self.data.ambient_pressure
-        if not self.data.rov_connected:
+        if not self.data.is_rov_connected():
             value_perc = 0
             value_kpa = 0
         else:

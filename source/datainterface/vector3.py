@@ -5,3 +5,5 @@ class Vector3:
         self.x = x
         self.y = y
         self.z = z
+    def __repr__(self):
+        return f"{self.x:.2f}, {self.y:.2f}, {self.z:.2f}"

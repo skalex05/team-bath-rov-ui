@@ -30,12 +30,6 @@ class ROVData:
         self.cardinal_direction = 0
         self.grove_water_sensor = 0
 
-        self.main_sonar = 0
-        self.FL_sonar = 0
-        self.FR_sonar = 0
-        self.BR_sonar = 0
-        self.BL_sonar = 0
-
         self.actuator_1 = 0
         self.actuator_2 = 0
         self.actuator_3 = 0
@@ -44,12 +38,6 @@ class ROVData:
         self.actuator_6 = 0
 
     def randomise(self):
-        self.attitude = Vector3(
-            rand_float_range(-45, 45, 1),
-            rand_float_range(0, 360, 1),
-            rand_float_range(-5, 5, 1)
-        )
-
         self.angular_acceleration = rand_vector3(-1, 1, 2)
         self.angular_velocity = rand_vector3(-5, 5, 2)
         self.acceleration = rand_vector3(-1, 1, 2)
@@ -58,12 +46,6 @@ class ROVData:
         self.ambient_temperature = rand_float_range(23, 27, 2)
         self.ambient_pressure = rand_float_range(100, 130, 2)
         self.internal_temperature = rand_float_range(40, 70, 1)
-
-        self.main_sonar = rand_float_range(0, 500, 1)
-        self.FL_sonar = rand_float_range(0, 500, 1)
-        self.FR_sonar = rand_float_range(0, 500, 1)
-        self.BR_sonar = rand_float_range(0, 500, 1)
-        self.BL_sonar = rand_float_range(0, 500, 1)
 
         self.actuator_1 = randint(0, 100)
         self.actuator_2 = randint(0, 100)

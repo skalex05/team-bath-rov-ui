@@ -5,7 +5,7 @@ from PyQt6.QtCore import pyqtSignal
 from screeninfo import screeninfo
 
 from copilot.copilot import Copilot
-from data_interface.data_interface import DataInterface
+from datainterface.data_interface import DataInterface
 from dock import Dock
 from grapher.grapher import Grapher
 from pilot.pilot import Pilot
@@ -19,7 +19,6 @@ class App(QApplication):
         Class for storing about the overall application.
     """
     task_checked = pyqtSignal(QWidget)
-
     def __init__(self, redirect_stdout, redirect_stderr, *args):
         super().__init__(*args)
         self.closing = False
@@ -111,12 +110,7 @@ class App(QApplication):
             return
         self.closing = True
         print("Closing", file=sys.__stdout__, flush=True)
-        # Rejoin threads before closing
-        try:
-            self.data_interface.close()
-            print("Closing data interface threads", file=sys.__stdout__, flush=True)
-        except ThreadError:
-            print("Could not close data interface threads.", file=sys.__stdout__, flush=True)
+        # Close dummy processes
         if self.rov_data_source_proc:
             try:
                 self.rov_data_source_proc.terminate()
@@ -129,4 +123,10 @@ class App(QApplication):
                 print("Killed float data source", file=sys.__stdout__, flush=True)
             except Exception as e:
                 print("Couldn't kill float data source - ", e, file=sys.__stdout__, flush=True)
+        # Rejoin threads before closing
+        try:
+            self.data_interface.close()
+            print("Closing data interface threads", file=sys.__stdout__, flush=True)
+        except ThreadError as e:
+            print("Could not close data interface threads.", file=sys.__stdout__, flush=True)
         self.quit()
