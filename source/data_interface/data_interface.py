@@ -8,7 +8,7 @@ from threading import Thread
 from typing import TYPE_CHECKING
 import time
 
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 
 from float_data import FloatData
 from rov_data import ROVData
@@ -113,6 +113,8 @@ class DataInterface(QObject):
         self.internal_temperature_alert_once = False
         self.float_depth_alert_once = False
 
+        self.timer = QTimer(self)
+
     def f_rov_data_thread(self):
         data_server = socket(AF_INET, SOCK_DGRAM)
         data_server.bind(("localhost", 52525))
@@ -135,11 +137,14 @@ class DataInterface(QObject):
             self.rov_data_update.emit()
 
             # Alert conditional popups
-            if not self.attitude_alert_once and ((self.attitude.x > 45 or self.attitude.x < -45) or
-                                                 (self.attitude.y > 360 or self.attitude.y < 0) or
-                                                 (self.attitude.x > 5 or self.attitude.x < -5)):
-                self.attitude_alert.emit()
-                self.attitude_alert_once = True
+            if not self.attitude_alert_once:
+                if self.attitude.z > 4 or self.attitude.z < -5:
+                    self.attitude_alert.emit()
+                    self.attitude_alert_once = True
+                else:
+                    pass
+                    #within safety boundaries for enough time
+                    #self.attitude_alert_once = False
 
             if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
                 self.depth_alert.emit()

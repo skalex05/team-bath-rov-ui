@@ -103,4 +103,4 @@ class Pilot(Window):
     def temp_sync(self):
         value_temp = self.data.ambient_temperature
         self.progressTempBar.setValue(int(value_temp))
-        self.temp_value.setText(f"{round(value_temp)}")
+        self.temp_value.setText(f"{round(value_temp)}{'°'}")
