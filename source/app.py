@@ -1,4 +1,5 @@
 import sys
+import traceback
 from threading import ThreadError
 
 from PyQt6.QtCore import pyqtSignal
@@ -104,12 +105,7 @@ class App(QApplication):
             return
         self.closing = True
         print("Closing", file=sys.__stdout__, flush=True)
-        # Rejoin threads before closing
-        try:
-            self.data_interface.close()
-            print("Closing data interface threads", file=sys.__stdout__, flush=True)
-        except ThreadError:
-            print("Could not close data interface threads.", file=sys.__stdout__, flush=True)
+        # Close dummy processes
         if self.rov_data_source_proc:
             try:
                 self.rov_data_source_proc.terminate()
@@ -122,4 +118,10 @@ class App(QApplication):
                 print("Killed float data source", file=sys.__stdout__, flush=True)
             except Exception as e:
                 print("Couldn't kill float data source - ", e, file=sys.__stdout__, flush=True)
+        # Rejoin threads before closing
+        try:
+            self.data_interface.close()
+            print("Closing data interface threads", file=sys.__stdout__, flush=True)
+        except ThreadError as e:
+            print("Could not close data interface threads.", file=sys.__stdout__, flush=True)
         self.quit()

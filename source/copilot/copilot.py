@@ -22,6 +22,12 @@ class Copilot(Window):
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "copilot.ui"), *args)
 
+        # Appearance
+
+        self.v_pad = 5
+        self.v_dp = 2
+
+
         self.data: DataInterface | None = None
 
         # Sensor Data
@@ -271,38 +277,35 @@ class Copilot(Window):
             line = "[ROV ERR] - " + line
 
         self.stdout_window.insertPlainText(line + "\n")
-        self.stdout_window.ensureCursorVisible()
+
+        # Scroll to bottom if scrollbar is less than 5 from bottom
+        if self.stdout_window.verticalScrollBar().maximum() - self.stdout_window.verticalScrollBar().value() < 5:
+            self.stdout_window.ensureCursorVisible()
 
     def update_rov_data(self):
-        if self.data.rov_connected:
+        if self.data.is_rov_connected():
             t = self.data.attitude
-            self.rov_attitude_value.setText(f"{t.x:<5}°, {t.y:<5}°, {t.z:<5}°")
+            self.rov_attitude_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
             t = self.data.angular_acceleration
-            self.rov_angular_accel_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_angular_accel_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.angular_velocity
-            self.rov_angular_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_angular_velocity_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.acceleration
-            self.rov_acceleration_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_acceleration_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.velocity
-            self.rov_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_velocity_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
 
-            self.rov_depth_value.setText(f"{self.data.depth} m")
-            self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature}°C")
-            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure} KPa")
-            self.internal_temp_value.setText(f"{self.data.internal_temperature} °C")
+            self.rov_depth_value.setText(f"{self.data.depth:<{self.v_pad}.{self.v_dp}f} m")
+            self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature:<{self.v_pad}.{self.v_dp}f}°C")
+            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure:<{self.v_pad}.{self.v_dp}f} KPa")
+            self.internal_temp_value.setText(f"{self.data.internal_temperature:<{self.v_pad}.{self.v_dp}f} °C")
 
-            self.set_sonar_value(self.main_sonar_value, self.data.main_sonar)
-            self.set_sonar_value(self.FR_sonar_value, self.data.FR_sonar)
-            self.set_sonar_value(self.FL_sonar_value, self.data.FL_sonar)
-            self.set_sonar_value(self.BR_sonar_value, self.data.BR_sonar)
-            self.set_sonar_value(self.BL_sonar_value, self.data.BL_sonar)
-
-            self.actuator1_value.setText(f"{self.data.actuator_1:>3} %")
-            self.actuator2_value.setText(f"{self.data.actuator_2:>3} %")
-            self.actuator3_value.setText(f"{self.data.actuator_3:>3} %")
-            self.actuator4_value.setText(f"{self.data.actuator_4:>3} %")
-            self.actuator5_value.setText(f"{self.data.actuator_5:>3} %")
-            self.actuator6_value.setText(f"{self.data.actuator_6:>3} %")
+            self.actuator1_value.setText(f"{int(self.data.actuator_1):>3} %")
+            self.actuator2_value.setText(f"{int(self.data.actuator_2):>3} %")
+            self.actuator3_value.setText(f"{int(self.data.actuator_3):>3} %")
+            self.actuator4_value.setText(f"{int(self.data.actuator_4):>3} %")
+            self.actuator5_value.setText(f"{int(self.data.actuator_5):>3} %")
+            self.actuator6_value.setText(f"{int(self.data.actuator_6):>3} %")
 
         else:
             pass
@@ -319,7 +322,7 @@ class Copilot(Window):
             self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
 
     def update_float_data(self):
-        if self.data.float_connected:
+        if self.data.is_float_connected():
             self.float_depth_value.setText(f"{self.data.float_depth} m")
         else:
             self.float_depth_value.setText("Float Disconnected")

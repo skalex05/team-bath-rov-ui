@@ -44,12 +44,6 @@ class ROVData:
         self.actuator_6 = 0
 
     def randomise(self):
-        self.attitude = Vector3(
-            rand_float_range(-45, 45, 1),
-            rand_float_range(0, 360, 1),
-            rand_float_range(-5, 5, 1)
-        )
-
         self.angular_acceleration = rand_vector3(-1, 1, 2)
         self.angular_velocity = rand_vector3(-5, 5, 2)
         self.acceleration = rand_vector3(-1, 1, 2)

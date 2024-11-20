@@ -1,13 +1,11 @@
 import io
 import pickle
-import struct
 import sys
-import traceback
-from collections.abc import Sequence
-from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
 from threading import Thread
-from typing import TYPE_CHECKING
-import time
+
+from sock_stream_recv import SockStreamRecv
+from sock_stream_send import SockStreamSend
+from typing import TYPE_CHECKING, Sequence
 import pygame
 
 from PyQt6.QtCore import pyqtSignal, QObject
@@ -24,6 +22,7 @@ if TYPE_CHECKING:
 
 ROV_IP = "localhost"
 FLOAT_IP = "localhost"
+
 
 class DataInterface(QObject):
     """
@@ -56,7 +55,6 @@ class DataInterface(QObject):
 
         # ROV Data
 
-        self.rov_connected = False
         self.attitude = Vector3(0, 0, 0)  # pitch, yaw, roll
         self.angular_acceleration = Vector3(0, 0, 0)
         self.angular_velocity = Vector3(0, 0, 0)
@@ -66,12 +64,8 @@ class DataInterface(QObject):
         self.ambient_temperature = 0
         self.ambient_pressure = 0
         self.internal_temperature = 0
-
-        self.main_sonar = 0
-        self.FL_sonar = 0
-        self.FR_sonar = 0
-        self.BR_sonar = 0
-        self.BL_sonar = 0
+        self.cardinal_direction = 0
+        self.grove_water_sensor = 0
 
         self.actuator_1 = 0
         self.actuator_2 = 0
@@ -81,7 +75,6 @@ class DataInterface(QObject):
         self.actuator_6 = 0
 
         # MATE FLOAT Data
-        self.float_connected = False
         self.float_depth = 0
 
         # Camera Feeds
@@ -91,27 +84,40 @@ class DataInterface(QObject):
 
         # Controller State
 
-        self.controller_state = None
+        pygame.init()
+        pygame.joystick.init()
+
+        self.joystick = None
 
         # Start Threads
+        def on_camera_feed_disconnect(i):
+            self.camera_feeds[i] = None
+            self.video_stream_update.emit(i)
 
         for i in range(self.camera_feed_count):
             self.camera_feeds.append(None)
-            cam_thread = Thread(target=self.f_video_stream_thread, args=(i,))
+            cam_thread = SockStreamRecv(self.app, ROV_IP, 52524-i,
+                                        lambda payload_bytes, j=i, : self.on_video_stream_sock_recv(payload_bytes, j),
+                                        lambda j=i: on_camera_feed_disconnect(j))
             self.camera_threads.append(cam_thread)
             cam_thread.start()
 
-        self.rov_data_thread = Thread(target=self.f_rov_data_thread)
+        self.rov_data_thread = SockStreamRecv(self.app, ROV_IP, 52525,  self.on_rov_data_sock_recv,
+                                              lambda: self.rov_data_update.emit())
         self.rov_data_thread.start()
 
-        self.float_data_thread = Thread(target=self.f_float_data_thread)
+        self.float_data_thread = SockStreamRecv(self.app, ROV_IP, 52625, self.on_float_data_sock_recv,
+                                                lambda: self.float_data_update.emit())
         self.float_data_thread.start()
 
-        self.stdout_thread = Thread(target=self.f_stdout_thread)
-        self.stdout_thread.start()
+        self.stdout_ui_thread = Thread(target=self.f_stdout_ui_thread)
+        self.stdout_ui_thread.start()
 
+        self.stdout_sock_thread = SockStreamRecv(self.app, ROV_IP, 52535,  self.on_stdout_sock_recv, None)
+        self.stdout_sock_thread.start()
 
-        self.controller_input_thread = Thread(target=self.f_controller_input_thread)
+        self.controller_input_thread = SockStreamSend(self.app, ROV_IP, 52526, 0.01,
+                                                      self.get_controller_input, None)
         self.controller_input_thread.start()
 
         # Alerts that already appeared once
@@ -122,128 +128,68 @@ class DataInterface(QObject):
         self.internal_temperature_alert_once = False
         self.float_depth_alert_once = False
 
-    def f_rov_data_thread(self):
-        data_server = socket(AF_INET, SOCK_DGRAM)
-        data_server.bind((ROV_IP, 52525))
-        data_server.setblocking(False)
-        data_server.settimeout(2)
-        while not self.app.closing:
-            try:
-                payload_bytes, addr = data_server.recvfrom(1024)
-            except TimeoutError:
-                self.rov_connected = False
-                self.rov_data_update.emit()
-                continue
-            self.rov_connected = True
-            rov_data: ROVData = pickle.loads(payload_bytes)
+    def is_rov_connected(self):
+        return self.rov_data_thread.connected
 
-            # Map all attributes in ROVData to their associated attributes in the DataInterface
-            for attr in rov_data.__dict__:
-                self.__setattr__(attr, rov_data.__getattribute__(attr))
+    def is_float_connected(self):
+        return self.float_data_thread.connected
 
-            self.rov_data_update.emit()
+    def is_controller_connected(self):
+        return self.get_controller_input() is not None
 
-            # Alert conditional popups
-            if not self.attitude_alert_once and ((self.attitude.x > 45 or self.attitude.x < -45) or
-                                                 (self.attitude.y > 360 or self.attitude.y < 0) or
-                                                 (self.attitude.x > 5 or self.attitude.x < -5)):
-                self.attitude_alert.emit()
-                self.attitude_alert_once = True
+    def on_rov_data_sock_recv(self, payload_bytes):
+        rov_data: ROVData = pickle.loads(payload_bytes)
 
-            if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
-                self.depth_alert.emit()
-                self.depth_alert_once = True
+        # Map all attributes in ROVData to their associated attributes in the DataInterface
+        for attr in rov_data.__dict__:
+            self.__setattr__(attr, rov_data.__getattribute__(attr))
 
-            if not self.ambient_temperature_alert_once and (self.ambient_temperature < 24 or self.ambient_temperature > 28):
-                self.ambient_temperature_alert.emit()
-                self.ambient_temperature_alert_once = True
+        if not self.attitude_alert_once and ((self.attitude.x > 45 or self.attitude.x < -45) or
+                                             (self.attitude.y > 360 or self.attitude.y < 0) or
+                                             (self.attitude.x > 5 or self.attitude.x < -5)):
+            self.attitude_alert.emit()
+            self.attitude_alert_once = True
 
-            if not self.ambient_pressure_alert_once and self.ambient_pressure > 129:
-                self.ambient_pressure_alert.emit()
-                self.ambient_pressure_alert_once = True
+        if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
+            self.depth_alert.emit()
+            self.depth_alert_once = True
 
-            if not self.internal_temperature_alert_once and self.internal_temperature > 69:
-                self.internal_temperature_alert.emit()
-                self.internal_temperature_alert_once = True
+        if not self.ambient_temperature_alert_once and (
+                self.ambient_temperature < 24 or self.ambient_temperature > 28):
+            self.ambient_temperature_alert.emit()
+            self.ambient_temperature_alert_once = True
 
-            time.sleep(0.0167)
+        if not self.ambient_pressure_alert_once and self.ambient_pressure > 129:
+            self.ambient_pressure_alert.emit()
+            self.ambient_pressure_alert_once = True
 
-    def f_float_data_thread(self):
-        data_server = socket(AF_INET, SOCK_DGRAM)
-        data_server.bind((FLOAT_IP, 52625))
-        data_server.setblocking(False)
-        data_server.settimeout(1)
-        while not self.app.closing:
-            try:
-                payload_bytes, addr = data_server.recvfrom(1024)
-            except TimeoutError:
-                self.float_connected = False
-                self.float_data_update.emit()
-                continue
-            self.float_connected = True
-            float_data: FloatData = pickle.loads(payload_bytes)
+        if not self.internal_temperature_alert_once and self.internal_temperature > 69:
+            self.internal_temperature_alert.emit()
+            self.internal_temperature_alert_once = True
 
-            # Map all attributes in ROVData to their associated attributes in the DataInterface
-            for attr in float_data.__dict__:
-                self.__setattr__(attr, float_data.__getattribute__(attr))
+        self.rov_data_update.emit()
 
-            self.float_data_update.emit()
-        time.sleep(0.01)
+    def on_float_data_sock_recv(self, payload_bytes):
+        float_data: FloatData = pickle.loads(payload_bytes)
+
+        # Map all attributes in ROVData to their associated attributes in the DataInterface
+        for attr in float_data.__dict__:
+            self.__setattr__(attr, float_data.__getattribute__(attr))
+
+        self.float_data_update.emit()
 
         # Alert conditional popups
         if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
             self.float_depth_alert.emit()
             self.float_depth_alert_once = True
 
-    def f_video_stream_thread(self, i):
-        video_server = socket(AF_INET, SOCK_STREAM)
-        video_server.bind((ROV_IP, 52524 - i))
-        video_server.settimeout(2)
+    def on_video_stream_sock_recv(self, payload_bytes, i):
+        frame = pickle.loads(payload_bytes)
+        height, width, channels = frame.shape
+        self.camera_feeds[i] = QImage(frame, width, height, channels * width, QImage.Format.Format_BGR888)
         self.video_stream_update.emit(i)
 
-        def handshake():
-            while not self.app.closing:
-                try:
-                    # Handshake frame size
-                    video_server.listen()
-                    con, addr = video_server.accept()
-                    size = con.recv(8)
-                    size = struct.unpack("Q", size)[0]
-                    pack = struct.pack("Q", size)
-                    con.send(pack)
-                    print(f"Camera {i + 1} Connected")
-                    return con, size
-                except TimeoutError:
-                    pass
-            return None, None
-
-        conn, frame_size = handshake()
-        data = b""
-        while not self.app.closing:
-            # Get frame
-            try:
-                while len(data) < frame_size:
-                    data += conn.recv(4096)
-
-                frame = data[:frame_size]
-                data = data[frame_size:]
-                frame = pickle.loads(frame)
-                height, width, channels = frame.shape
-                self.camera_feeds[i] = QImage(frame, width, height, channels * width, QImage.Format.Format_BGR888)
-                self.video_stream_update.emit(i)
-            except ConnectionError:
-                self.camera_feeds[i] = None
-                self.video_stream_update.emit(i)
-                conn, frame_size = handshake()
-            except TimeoutError:
-                pass
-
-    def f_stdout_thread(self):
-        stdout_server = socket(AF_INET, SOCK_STREAM)
-        stdout_server.bind((ROV_IP, 52535))
-        stdout_server.settimeout(0.5)
-
-        conn, _ = None, None
+    def f_stdout_ui_thread(self):
         while not self.app.closing:
             # Process redirected stdout
             self.redirect_stdout.flush()
@@ -265,76 +211,39 @@ class DataInterface(QObject):
                 self.redirect_stderr.seek(0)
                 self.redirect_stderr.truncate(0)
 
-            try:
-                try:
-                    if conn is None:
-                        raise ConnectionError()
-                    source, line = pickle.loads(conn.recv(1024))
-                    self.stdout_update.emit(source, line)
-                except ConnectionError:
-                    stdout_server.listen()
-                    conn, _ = stdout_server.accept()
-            except TimeoutError:
-                pass
-            except Exception as e:
-                print(e, file=self.redirect_stderr)
-            time.sleep(0.0167)
+    def on_stdout_sock_recv(self, payload_bytes):
+        source, line = pickle.loads(payload_bytes)
+        self.stdout_update.emit(source, line)
 
-    def f_controller_input_thread(self):
-        input_client = None
+    def get_controller_input(self):
+        pygame.event.pump()
+        try:
+            if self.joystick is None:
+                self.joystick = pygame.joystick.Joystick(0)
+                self.joystick.init()
+                print("Controller Connected")
+        except pygame.error:
+            return None
 
-        pygame.init()
+        try:
+            new_state = {
+                "axes": [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())],
+                "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
+                "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
+            }
+        except pygame.error:
+            self.joystick.quit()
+            self.joystick = None
+            print("Controller Disconnected")
+            return None
 
-        joystick = None
-
-        while not self.app.closing:
-            time.sleep(0.01)
-            for event in pygame.event.get():
-                if event.type == pygame.JOYDEVICEADDED:
-                    pygame.joystick.init()
-                    joystick = pygame.joystick.Joystick(0)
-                    joystick.init()
-                    print("Controller Connected")
-                elif event.type == pygame.JOYDEVICEREMOVED:
-                    joystick.quit()
-                    joystick = None
-                    print("Controller Disconnected")
-
-            if joystick is None:
-                continue
-
-            if input_client is None:
-                try:
-                    input_client = socket(AF_INET, SOCK_STREAM)
-                    input_client.connect(("localhost", 52526))
-                except ConnectionError:
-                    input_client = None
-                    continue
-
-            try:
-                new_state = {
-                    "axes": [joystick.get_axis(i) for i in range(joystick.get_numaxes())],
-                    "buttons": [joystick.get_button(i) for i in range(joystick.get_numbuttons())],
-                    "hats": [joystick.get_hat(i) for i in range(joystick.get_numhats())]
-                }
-                if self.controller_state == new_state:
-                    continue
-
-                try:
-                    self.controller_state = new_state
-                    payload = pickle.dumps((self.controller_state, time.time()))
-                    input_client.send(payload)
-                except ConnectionError as e:
-                    print("ERR", e)
-
-                time.sleep(0.01)
-            except Exception as e:
-                print(traceback.format_exc(e))
-
-        pygame.quit()
+        return new_state
 
     def close(self):
+        pygame.quit()
         self.rov_data_thread.join(10)
-        self.stdout_thread.join(10)
+        self.stdout_sock_thread.join(10)
+        self.stdout_ui_thread.join(10)
+        self.controller_input_thread.join(10)
         for video_stream_thread in self.camera_threads:
             video_stream_thread.join(10)

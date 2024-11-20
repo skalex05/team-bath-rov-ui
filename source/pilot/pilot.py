@@ -89,7 +89,7 @@ class Pilot(Window):
         }"""
 
         value_kpa = self.data.ambient_pressure
-        if not self.data.rov_connected:
+        if not self.data.is_rov_connected():
             value_perc = 0
             value_kpa = 0
         else:
