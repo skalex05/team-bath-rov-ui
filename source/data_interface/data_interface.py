@@ -8,7 +8,7 @@ from threading import Thread
 from typing import TYPE_CHECKING
 import time
 
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QImage
 
 from float_data import FloatData

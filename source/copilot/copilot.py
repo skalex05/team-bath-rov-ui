@@ -346,18 +346,24 @@ class Copilot(Window):
     # Alert messages, need upgrade
     def alert_attitude(self):
         QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
+        print("Warning!", f"{'Roll is: '}{self.data.attitude.z}")
 
     def alert_depth(self):
-        QMessageBox.warning(self, "Depth warning", f"{'Depth is: '}{self.data.depth}")
+        QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
+        print("Warning!", f"{'Depth is: '}{self.data.depth}")
 
     def alert_ambient_pressure(self):
         QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        print("Warning!", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
 
     def alert_ambient_temperature(self):
         QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        print("Warning!", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
 
     def alert_internal_temperature(self):
         QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
 
     def alert_float_depth(self):
         QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
+        print("Warning", f"{'Float depth: '}{self.data.float_depth}")
