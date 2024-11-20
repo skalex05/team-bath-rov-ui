@@ -9,6 +9,7 @@ HEADER_FORMAT = "Qd"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # Header payload size is encoded as an unsigned long long
 
 
+# Use to send a continuous stream of data
 class SockStreamSend(threading.Thread):
     def __init__(self, app, addr, port, sleep, get_data, on_disconnect, *args, **kwargs):
         self.app = app  # This will be None if it is not running in the UI
@@ -45,7 +46,7 @@ class SockStreamSend(threading.Thread):
 
                     # Attach the header containing the size of payload
                     header = struct.pack("Qd", len(bytes_to_send), time.time())
-                    payload = header+bytes_to_send
+                    payload = header + bytes_to_send
                     # Send all packets to the server
                     data_client.sendall(payload)
             # Allow program to reconnect if a connection/timeout error occurs
@@ -54,4 +55,24 @@ class SockStreamSend(threading.Thread):
                 if self.on_disconnect is not None:
                     self.on_disconnect()
 
+
+# Used to send a single message to a SockStreamRecv
+def SockSend(app, addr, port, msg):
+    bytes_to_send = pickle.dumps(msg)
+    # Attach the header containing the size of payload
+    header = struct.pack("Qd", len(bytes_to_send), time.time())
+    payload = header + bytes_to_send
+    while app is None or not app.closing:
+        # Try and connect to server (Non-blocking)
+        try:
+            data_client = socket(AF_INET, SOCK_STREAM)
+            data_client.settimeout(0.5)
+            data_client.connect((addr, port))
+
+            # Connected
+            data_client.sendall(payload)
+
+            break
+        except (TimeoutError, ConnectionError):
+            pass
 

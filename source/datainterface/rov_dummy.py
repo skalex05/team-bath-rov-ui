@@ -1,6 +1,8 @@
 # This script creates a simulated version of the ROV that the UI can interact with
 import pickle
 from random import random, choice
+
+from datainterface.action_enum import ActionEnum
 from rov_data import ROVData
 from stdout_type import StdoutType
 from video_stream import VideoStream
@@ -16,8 +18,12 @@ rov_data = ROVData()
 
 def get_rov_data():
     global rov_data
+    global maintain_depth
 
     rov_data.randomise()
+
+    if maintain_depth:
+        rov_data.depth = depth_value
 
     return rov_data
 
@@ -62,6 +68,30 @@ def controller_input_recv(payload_bytes):
     rov_data.attitude.z += roll_input
 
 
+maintain_depth = False
+depth_value = 0
+
+
+def action_recv(payload_bytes):
+    global rov_data
+    global video_streams
+    global maintain_depth
+    global depth_value
+
+    action = pickle.loads(payload_bytes)
+    args = tuple()
+    if type(action) is tuple:
+        action, *args = action
+    print(action, args)
+    if action == ActionEnum.REINIT_CAMS:
+        for stream in video_streams:
+            stream.start_init_camera_feed()
+    if action == ActionEnum.MAINTAIN_ROV_DEPTH:
+        maintain_depth = args[0]
+        if maintain_depth:
+            depth_value = args[1]
+
+    print(action, args)
 
 
 data_thread = SockStreamSend(None, "localhost", 52525, 0.05, get_rov_data, None)
@@ -79,3 +109,6 @@ for i in range(3):
 
 input_thread = SockStreamRecv(None, "localhost", 52526, controller_input_recv, None)
 input_thread.start()
+
+action_thread = SockStreamRecv(None, "localhost", 52527, action_recv, None)
+action_thread.start()

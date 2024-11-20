@@ -7,9 +7,11 @@ from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPush
 from PyQt6 import QtCore
 from PyQt6.QtCore import QRect
 
-from data_interface.data_interface import DataInterface, StdoutType
+from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
 from action_thread import ActionThread
-from data_interface.video_stream import VideoStream
+from datainterface.action_enum import ActionEnum
+from datainterface.sock_stream_send import SockSend
+from datainterface.video_stream import VideoStream
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -42,12 +44,6 @@ class Copilot(Window):
         self.ambient_water_temp_value: QLabel = self.findChild(QLabel, "AmbientWaterTempValue")
         self.ambient_pressure_value: QLabel = self.findChild(QLabel, "AmbientPressureValue")
         self.internal_temp_value: QLabel = self.findChild(QLabel, "InternalTempValue")
-
-        self.main_sonar_value: QLabel = self.findChild(QLabel, "MainSonarValue")
-        self.FL_sonar_value: QLabel = self.findChild(QLabel, "FLSonarValue")
-        self.FR_sonar_value: QLabel = self.findChild(QLabel, "FRSonarValue")
-        self.BR_sonar_value: QLabel = self.findChild(QLabel, "BRSonarValue")
-        self.BL_sonar_value: QLabel = self.findChild(QLabel, "BLSonarValue")
 
         self.actuator1_value: QLabel = self.findChild(QLabel, "Actuator1Value")
         self.actuator2_value: QLabel = self.findChild(QLabel, "Actuator2Value")
@@ -192,14 +188,13 @@ class Copilot(Window):
 
     def on_rov_power(self):
         if self.rov_power_action.isChecked():
+            print("Powering On!")
             self.rov_power_action.setChecked(False)
             if os.name == "nt":
                 ex = "python.exe"
             else:
                 ex = "python3"
-            self.app.rov_data_source_proc = subprocess.Popen([ex, "data_interface//rov_dummy.py"])
-            print("Powering On!")
-            time.sleep(2)
+            self.app.rov_data_source_proc = subprocess.Popen([ex, "datainterface//rov_dummy.py"])
             print("Power On!")
             self.rov_power_action.setChecked(True)
         else:
@@ -207,20 +202,34 @@ class Copilot(Window):
             print("Powering Off!")
             self.app.rov_data_source_proc.terminate()
             self.app.rov_data_source_proc = None
-            time.sleep(2)
-            print("Power Off!")
             self.rov_power_action.setChecked(False)
+            if self.maintain_depth_action.isChecked():
+                self.maintain_depth_action.setChecked(False)
+                self.maintain_depth()
+
+            print("Power Off!")
 
     def maintain_depth(self):
-        if self.maintain_depth_action.isChecked():
-            self.maintain_depth_action.setText(f"Maintaining depth ({self.app.data_interface.depth} m)")
-            print(f"Maintaining depth of {self.app.data_interface.depth} m")
+        depth = self.data.depth
+        if self.data.is_rov_connected():
+            SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH,
+                                           self.maintain_depth_action.isChecked(), depth))
+        if self.maintain_depth_action.isChecked() and self.data.is_rov_connected():
+            self.maintain_depth_action.setText(f"Maintaining Depth ({depth} m)")
+            print(f"Maintaining depth of {depth} m")
         else:
-            print("No longer maintaining depth")
+            self.maintain_depth_action.setText(f"Maintain Depth")
+            if self.data.is_rov_connected():
+                print("No longer maintaining depth")
+            else:
+                self.maintain_depth_action.setChecked(False)
+
+
 
     def reinitialise_cameras(self):
         # Check cameras aren't already being initialised
-        print("Reinitialise Cameras Action Not Implemented", file=self.data.redirect_stderr)
+        if self.data.is_rov_connected():
+            SockSend(self.app, ROV_IP, 52527, ActionEnum.REINIT_CAMS)
         time.sleep(1)
         self.reinitialise_cameras_action.setChecked(False)
 
@@ -236,20 +245,13 @@ class Copilot(Window):
         self.reset_alerts_action.setChecked(False)
         self.reset_alerts_action.setAutoExclusive(True)
 
-    @staticmethod
-    def set_sonar_value(widget: QWidget, value: int, value_max: int = 200):
-        if value > value_max:
-            widget.setText(f">{value_max} cm")
-        else:
-            widget.setText(f"{value} cm")
-
     def connect_float(self):
         if self.connect_float_action.isChecked():
             self.connect_float_action.setChecked(False)
             try:
-                self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+                self.app.float_data_source_proc = subprocess.Popen(["python.exe", "datainterface//float_data_source.py"])
             except FileNotFoundError:
-                self.app.float_data_source_proc = subprocess.Popen(["python3", "data_interface//float_data_source.py"])
+                self.app.float_data_source_proc = subprocess.Popen(["python3", "datainterface//float_data_source.py"])
             print("Connecting...")
             time.sleep(2)
             print("Connected!")
@@ -313,13 +315,12 @@ class Copilot(Window):
             for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
                           self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
                           self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
-                          self.main_sonar_value, self.FR_sonar_value, self.FL_sonar_value, self.BR_sonar_value,
-                          self.BL_sonar_value, self.actuator1_value, self.actuator2_value, self.actuator3_value,
+                          self.actuator1_value, self.actuator2_value, self.actuator3_value,
                           self.actuator4_value, self.actuator5_value, self.actuator6_value]:
                 label.setText("ROV Disconnected")
 
         if not self.maintain_depth_action.isChecked():
-            self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
+            self.maintain_depth_action.setText(f"Maintain Depth")
 
     def update_float_data(self):
         if self.data.is_float_connected():

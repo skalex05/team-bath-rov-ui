@@ -1,12 +1,11 @@
 import sys
-import traceback
 from threading import ThreadError
 
 from PyQt6.QtCore import pyqtSignal
 from screeninfo import screeninfo
 
 from copilot.copilot import Copilot
-from data_interface.data_interface import DataInterface
+from datainterface.data_interface import DataInterface
 from dock import Dock
 from grapher.grapher import Grapher
 from pilot.pilot import Pilot
@@ -20,7 +19,6 @@ class App(QApplication):
         Class for storing about the overall application.
     """
     task_checked = pyqtSignal(QWidget)
-
     def __init__(self, redirect_stdout, redirect_stderr, *args):
         super().__init__(*args)
         self.closing = False
