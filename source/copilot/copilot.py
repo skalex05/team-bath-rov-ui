@@ -4,7 +4,6 @@ import time
 
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, QMessageBox
 
-from PyQt6 import QtCore
 from PyQt6.QtCore import QRect
 
 from data_interface.data_interface import DataInterface, StdoutType
@@ -55,7 +54,6 @@ class Copilot(Window):
         # Timer
 
         self.time_left_int = DURATION_INT
-        self.my_timer = QtCore.QTimer(self)
 
         self.startTimeButton = self.findChild(QPushButton, "startTimeButton")
         self.startTimeButton.clicked.connect(self.start_timer)
@@ -133,24 +131,24 @@ class Copilot(Window):
         return minsec
 
     def start_timer(self):
-        if not self.my_timer.isActive():
+        if not self.data.timer.isActive():
             try:
-                self.my_timer.timeout.disconnect(self.timer_timeout)
+                self.data.timer.timeout.disconnect(self.timer_timeout)
             except TypeError:
                 pass
 
-            self.my_timer.timeout.connect(self.timer_timeout)
-            self.my_timer.setInterval(1000)
-            self.my_timer.start()
+            self.data.timer.timeout.connect(self.timer_timeout)
+            self.data.timer.setInterval(1000)
+            self.data.timer.start()
             self.stop_time_button.setText("Stop")
 
     def stop_timer(self):
-        if not self.my_timer.isActive():
+        if not self.data.timer.isActive():
             # If the timer is inactive, reset the timer
             self.time_left_int = DURATION_INT
             self.app.reset_task_completion()
             self.update_time()
-        self.my_timer.stop()
+        self.data.timer.stop()
         self.stop_time_button.setText("Reset")
 
     def timer_timeout(self):
@@ -341,19 +339,25 @@ class Copilot(Window):
 
     # Alert messages, need upgrade
     def alert_attitude(self):
-        QMessageBox.warning(self, "Warning", "attitude")
+        QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
+        print("Warning!", f"{'Roll is: '}{self.data.attitude.z}")
 
     def alert_depth(self):
-        QMessageBox.warning(self, "Warning", "depth")
+        QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
+        print("Warning!", f"{'Depth is: '}{self.data.depth}")
 
     def alert_ambient_pressure(self):
-        QMessageBox.warning(self, "Warning", "ambient pressure")
+        QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        print("Warning!", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
 
     def alert_ambient_temperature(self):
-        QMessageBox.warning(self, "Warning", "ambient temperature")
+        QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        print("Warning!", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
 
     def alert_internal_temperature(self):
-        QMessageBox.warning(self, "Warning", "internal temperature")
+        QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
 
     def alert_float_depth(self):
-        QMessageBox.warning(self, "Warning", "float depth")
+        QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
+        print("Warning", f"{'Float depth: '}{self.data.float_depth}")
