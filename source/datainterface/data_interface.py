@@ -8,7 +8,7 @@ from sock_stream_send import SockStreamSend
 from typing import TYPE_CHECKING, Sequence
 import pygame
 
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QImage
 
 from float_data import FloatData
@@ -121,6 +121,7 @@ class DataInterface(QObject):
         self.controller_input_thread.start()
 
         # Alerts that already appeared once
+        self.timer = QTimer(self)
         self.attitude_alert_once = False
         self.depth_alert_once = False
         self.ambient_temperature_alert_once = False
@@ -144,12 +145,12 @@ class DataInterface(QObject):
         for attr in rov_data.__dict__:
             self.__setattr__(attr, rov_data.__getattribute__(attr))
 
-        if not self.attitude_alert_once and ((self.attitude.x > 45 or self.attitude.x < -45) or
-                                             (self.attitude.y > 360 or self.attitude.y < 0) or
-                                             (self.attitude.x > 5 or self.attitude.x < -5)):
-            self.attitude_alert.emit()
-            self.attitude_alert_once = True
-
+        if not self.attitude_alert_once:
+            if self.attitude.z > 4 or self.attitude.z < -5:
+                self.attitude_alert.emit()
+                self.attitude_alert_once = True
+            else:
+                pass
         if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
             self.depth_alert.emit()
             self.depth_alert_once = True

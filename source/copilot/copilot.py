@@ -5,6 +5,7 @@ import time
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, QMessageBox
 
 from PyQt6.QtCore import QRect
+from PyQt6.QtGui import QTextCursor
 
 from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
 from action_thread import ActionThread
@@ -276,7 +277,7 @@ class Copilot(Window):
         elif source == StdoutType.ROV_ERROR:
             line = "[ROV ERR] - " + line
 
-        self.stdout_window.insertPlainText(line + "\n")
+        self.stdout_window.appendPlainText(line)
 
         # Scroll to bottom if scrollbar is less than 5 from bottom
         if self.stdout_window.verticalScrollBar().maximum() - self.stdout_window.verticalScrollBar().value() < 5:

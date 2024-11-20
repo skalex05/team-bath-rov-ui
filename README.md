@@ -257,6 +257,18 @@ If this occurs, `on_disconnect` is called.
 If at any point a connection becomes unresponsive(times out) or causes a connection error, the thread will return to **1.**
 If this occurs, `on_disconnect` is called.
 
+### SockSend
+
+This is a function that can be used to send a one-off message to a thread. 
+For this function you can specify the following parameters:
+
+- `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
+- `addr` - The **IP Address** that the connection will be bound to.
+- `port` - The port the socket is bound to.
+- `msg` - Message to send across the socket
+
+It will behave very similarly to SockStreamSend and will ensure the message is sent. **This function is blocking**. Ideally run this function on its own thread.
+
 ## Window Widget
 
 ***NOTE: Current implementation only supports 1920x1080 displays. This needs to be modified.***
