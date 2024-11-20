@@ -216,27 +216,24 @@ class DataInterface(QObject):
         self.stdout_update.emit(source, line)
 
     def get_controller_input(self):
-        pygame.event.pump()
-        try:
-            if self.joystick is None:
-                self.joystick = pygame.joystick.Joystick(0)
-                self.joystick.init()
-                print("Controller Connected")
-        except pygame.error:
+        for event in pygame.event.get():
+            if event.type == pygame.JOYDEVICEADDED:
+                if self.joystick is None:
+                    self.joystick = pygame.joystick.Joystick(0)
+                    self.joystick.init()
+                    print("Controller Connected", flush=True)
+            elif event.type == pygame.JOYDEVICEREMOVED:
+                self.joystick.quit()
+                self.joystick = None
+                print("Controller Disconnected", flush=True)
+                return None
+        if self.joystick is None:
             return None
-
-        try:
-            new_state = {
-                "axes": [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())],
-                "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
-                "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
-            }
-        except pygame.error:
-            self.joystick.quit()
-            self.joystick = None
-            print("Controller Disconnected")
-            return None
-
+        new_state = {
+            "axes": [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())],
+            "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
+            "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
+        }
         return new_state
 
     def close(self):
