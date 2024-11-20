@@ -65,18 +65,21 @@ class App(QApplication):
         self.dock = Dock(self, monitors[copilot_monitor], len(monitors))
 
         # Create windows
-        self.pilot_window = Pilot(self, monitors[pilot_monitor])
+
+        print(monitors)
+
         self.copilot_window = Copilot(self, monitors[copilot_monitor])
+        self.pilot_window = Pilot(self, monitors[pilot_monitor])
         self.grapher_window = Grapher(self, monitors[graph_monitor])
 
         # Attach the navigation bars to these windows
 
-        self.pilot_window.attach_nav_bar(self.dock)
         self.copilot_window.attach_nav_bar(self.dock)
+        self.pilot_window.attach_nav_bar(self.dock)
         self.grapher_window.attach_nav_bar(self.dock)
 
         # Add windows to the dock
-        self.dock.add_windows(self.pilot_window, self.copilot_window, self.grapher_window)
+        self.dock.add_windows(self.copilot_window,self.pilot_window, self.grapher_window)
 
         # Undock windows if extra monitors are available
         if len(monitors) > 1:
@@ -85,9 +88,9 @@ class App(QApplication):
         if len(monitors) > 2:
             self.grapher_window.nav.f_undock()
 
-        self.dock.showMaximized()
+        self.dock.showFullScreen()
 
-        windows = [self.pilot_window, self.copilot_window, self.grapher_window]
+        windows = [self.copilot_window, self.pilot_window, self.grapher_window]
         # Create the data interface
         # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
         self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)

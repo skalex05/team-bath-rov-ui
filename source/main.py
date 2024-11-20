@@ -2,6 +2,15 @@ import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
 from app import App
+import os
+
+if os.name == "nt":
+    import ctypes
+    scale = 100 / ctypes.windll.shcore.GetScaleFactorForDevice(0)
+    os.environ["QT_SCALE_FACTOR"] = str(scale)
+else:
+    print("WARNING: Display Scaling May Not Be Correct on non ")
+    os.environ["QT_USE_PHYSICAL_DPI"] = "1"
 
 # Create the thread that will organise real time data
 
