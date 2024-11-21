@@ -2,7 +2,7 @@
 import pickle
 from random import random, choice
 
-from datainterface.action_enum import ActionEnum
+from action_enum import ActionEnum
 from rov_data import ROVData
 from stdout_type import StdoutType
 from video_stream import VideoStream
