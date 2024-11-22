@@ -43,40 +43,12 @@ class App(QApplication):
             Task(self, "Recieve the second set of readings for submersion", "Cool This is very interesting stuff",
                  (13, 30)),
             Task(self, "Return to the surface", "Rahhhh", (13, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
-            Task(self, "Return to base", "Quickly!", (14, 0)),
             Task(self, "Return to base", "Quickly!", (14, 0))
-
-
         ]
         self.tasks = list(sorted(self.tasks, key=lambda t: t.start_time[0] * 60 + t.start_time[1], reverse=True))
 
         # Get all monitors connected to the computer
         monitors = screeninfo.get_monitors()
-        print(monitors)
 
         # Assign each window to its own monitor if available
         pilot_monitor = 0
