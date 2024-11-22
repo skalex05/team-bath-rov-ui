@@ -43,12 +43,40 @@ class App(QApplication):
             Task(self, "Recieve the second set of readings for submersion", "Cool This is very interesting stuff",
                  (13, 30)),
             Task(self, "Return to the surface", "Rahhhh", (13, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
+            Task(self, "Return to base", "Quickly!", (14, 0)),
             Task(self, "Return to base", "Quickly!", (14, 0))
+
+
         ]
         self.tasks = list(sorted(self.tasks, key=lambda t: t.start_time[0] * 60 + t.start_time[1], reverse=True))
 
         # Get all monitors connected to the computer
         monitors = screeninfo.get_monitors()
+        print(monitors)
 
         # Assign each window to its own monitor if available
         pilot_monitor = 0
@@ -65,8 +93,6 @@ class App(QApplication):
         self.dock = Dock(self, monitors[copilot_monitor], len(monitors))
 
         # Create windows
-
-        print(monitors)
 
         self.copilot_window = Copilot(self, monitors[copilot_monitor])
         self.pilot_window = Pilot(self, monitors[pilot_monitor])
@@ -89,6 +115,8 @@ class App(QApplication):
             self.grapher_window.nav.f_undock()
 
         self.dock.showFullScreen()
+        self.dock.currentWidget().nav.clear_layout()
+        self.dock.currentWidget().nav.generate_layout()
 
         windows = [self.copilot_window, self.pilot_window, self.grapher_window]
         # Create the data interface
@@ -96,6 +124,10 @@ class App(QApplication):
         self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
         for window in windows:
             window.attach_data_interface()
+
+        self.data_interface.rov_data_update.emit()
+        for i in range(self.data_interface.camera_feed_count):
+            self.data_interface.video_stream_update.emit(i)
 
         dark_theme = """
             Window {
