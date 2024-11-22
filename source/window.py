@@ -22,8 +22,6 @@ class Window(QFrame):
         self.nav = None
         self.app = app
         self.desired_monitor = monitor  # When undocked, this window will be displayed on this monitor
-        # Set window size and load content
-        self.setFixedSize(1920, 1080)
         # Load a .ui file into this window
         uic.loadUi(file, self)
         # Position the window and remove the default window frame

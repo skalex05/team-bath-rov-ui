@@ -131,6 +131,8 @@ class NavBar(QWidget):
 
     def mouseReleaseEvent(self, event):
         self.top_window.showFullScreen()
+        self.clear_layout()
+        self.generate_layout()
 
     def mouseMoveEvent(self, event):
         delta = event.globalPosition() - self.oldPos

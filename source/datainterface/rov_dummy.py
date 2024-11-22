@@ -15,13 +15,17 @@ from sock_stream_send import SockStreamSend
 
 rov_data = ROVData()
 
-
+i = 100
 def get_rov_data():
     global rov_data
     global maintain_depth
+    global i
 
     rov_data.randomise()
-
+    rov_data.ambient_pressure = i
+    i += 0.1
+    i %= 50
+    i += 100
     if maintain_depth:
         rov_data.depth = depth_value
 
