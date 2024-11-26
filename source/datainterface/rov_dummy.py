@@ -2,7 +2,7 @@
 import pickle
 from random import random, choice
 
-from datainterface.action_enum import ActionEnum
+from action_enum import ActionEnum
 from rov_data import ROVData
 from stdout_type import StdoutType
 from video_stream import VideoStream
@@ -15,13 +15,17 @@ from sock_stream_send import SockStreamSend
 
 rov_data = ROVData()
 
-
+i = 100
 def get_rov_data():
     global rov_data
     global maintain_depth
+    global i
 
     rov_data.randomise()
-
+    rov_data.ambient_pressure = i
+    i += 0.1
+    i %= 50
+    i += 100
     if maintain_depth:
         rov_data.depth = depth_value
 

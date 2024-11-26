@@ -2,9 +2,11 @@ import os
 import subprocess
 import time
 
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, QMessageBox
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, \
+    QMessageBox
 
 from PyQt6.QtCore import QRect
+from PyQt6.QtGui import QTextCursor
 
 from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
 from action_thread import ActionThread
@@ -27,7 +29,6 @@ class Copilot(Window):
 
         self.v_pad = 5
         self.v_dp = 2
-
 
         self.data: DataInterface | None = None
 
@@ -89,7 +90,7 @@ class Copilot(Window):
 
         self.connect_float_action: QRadioButton = self.findChild(QRadioButton, "ConnectFloatAction")
         self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
-                                                                target=self.connect_float)
+                                                        target=self.connect_float)
 
         self.reset_alerts_action: QRadioButton = self.findChild(QRadioButton, "ResetAlerts")
         self.reset_alerts_action_thread = ActionThread(self.reset_alerts_action, self.reset_alerts)
@@ -121,7 +122,6 @@ class Copilot(Window):
         self.data.ambient_temperature_alert.connect(self.alert_ambient_temperature)
         self.data.internal_temperature_alert.connect(self.alert_internal_temperature)
         self.data.float_depth_alert.connect(self.alert_float_depth)
-
 
     # Timer Functions
 
@@ -211,7 +211,7 @@ class Copilot(Window):
         depth = self.data.depth
         if self.data.is_rov_connected():
             SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH,
-                                           self.maintain_depth_action.isChecked(), depth))
+                                               self.maintain_depth_action.isChecked(), depth))
         if self.maintain_depth_action.isChecked() and self.data.is_rov_connected():
             self.maintain_depth_action.setText(f"Maintaining Depth ({depth} m)")
             print(f"Maintaining depth of {depth} m")
@@ -221,8 +221,6 @@ class Copilot(Window):
                 print("No longer maintaining depth")
             else:
                 self.maintain_depth_action.setChecked(False)
-
-
 
     def reinitialise_cameras(self):
         # Check cameras aren't already being initialised
@@ -247,7 +245,8 @@ class Copilot(Window):
         if self.connect_float_action.isChecked():
             self.connect_float_action.setChecked(False)
             try:
-                self.app.float_data_source_proc = subprocess.Popen(["python.exe", "datainterface//float_data_source.py"])
+                self.app.float_data_source_proc = subprocess.Popen(
+                    ["python.exe", "datainterface//float_data_source.py"])
             except FileNotFoundError:
                 self.app.float_data_source_proc = subprocess.Popen(["python3", "datainterface//float_data_source.py"])
             print("Connecting...")
@@ -276,7 +275,7 @@ class Copilot(Window):
         elif source == StdoutType.ROV_ERROR:
             line = "[ROV ERR] - " + line
 
-        self.stdout_window.insertPlainText(line + "\n")
+        self.stdout_window.appendPlainText(line)
 
         # Scroll to bottom if scrollbar is less than 5 from bottom
         if self.stdout_window.verticalScrollBar().maximum() - self.stdout_window.verticalScrollBar().value() < 5:
@@ -285,15 +284,20 @@ class Copilot(Window):
     def update_rov_data(self):
         if self.data.is_rov_connected():
             t = self.data.attitude
-            self.rov_attitude_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
+            self.rov_attitude_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
             t = self.data.angular_acceleration
-            self.rov_angular_accel_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+            self.rov_angular_accel_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.angular_velocity
-            self.rov_angular_velocity_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+            self.rov_angular_velocity_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.acceleration
-            self.rov_acceleration_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+            self.rov_acceleration_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.velocity
-            self.rov_velocity_value.setText(f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+            self.rov_velocity_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
 
             self.rov_depth_value.setText(f"{self.data.depth:<{self.v_pad}.{self.v_dp}f} m")
             self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature:<{self.v_pad}.{self.v_dp}f}°C")

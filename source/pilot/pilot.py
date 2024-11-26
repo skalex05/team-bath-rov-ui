@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtWidgets import QLabel, QProgressBar
+from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
 
 from datainterface.data_interface import DataInterface
 from window import Window
@@ -36,6 +36,7 @@ class Pilot(Window):
 
         self.rpb_perc: QLabel = self.findChild(QLabel, "rpb_perc")
         self.rpb_kpa: QLabel = self.findChild(QLabel, "rpb_kpa")
+        self.rpb_path: QFrame = self.findChild(QFrame, "RPB_PATH")
 
         self.temp_value: QLabel = self.findChild(QLabel, "temp_value")
         self.progressTempBar = self.findChild(QProgressBar, "temp_bar")
@@ -83,10 +84,7 @@ class Pilot(Window):
             cam[1].setText(f"{cam[0]} Disconnected")
 
     def rpb_sync(self):
-        self.stylesheet_pressure = """
-        #RPB_PATH{
-            background-color: qconicalgradient(cx:0.5, cy:0.5, angle:90, stop:{CW_STOP_1} rgba(85, 255, 255, 255), stop:{CW_STOP_2} rgba(0, 0, 124, 255));
-        }"""
+        gauge_angle = 330
 
         value_kpa = self.data.ambient_pressure
         if not self.data.is_rov_connected():
@@ -94,10 +92,13 @@ class Pilot(Window):
             value_kpa = 0
         else:
             value_perc = (value_kpa-100)/50
-        val1 = (1-value_perc)
-        value1 = str(val1 - 0.001)
-        self.new_stylesheet_pressure = self.stylesheet_pressure.replace("{CW_STOP_1}",value1).replace("{CW_STOP_2}",str(val1))
-        self.RPB_PATH.setStyleSheet(self.new_stylesheet_pressure)
+        val1 = (1-value_perc * gauge_angle / 360)
+        value1 = val1 - 0.001
+        self.rpb_path.setStyleSheet(f"""
+        #RPB_PATH{{
+            background-color: qconicalgradient(cx:0.5, cy:0.5, angle: {270-(360-gauge_angle)/2}, stop:{val1} rgba(85, 255, 255, 255), stop:{value1} rgba(0, 0, 124, 255));
+        }}
+        """)
         self.rpb_perc.setText(f"{round(value_perc*100)}{'%'}")
         self.rpb_kpa.setText(f"{round(value_kpa)}{' kPa'}")
 

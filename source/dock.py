@@ -14,6 +14,7 @@ class Dock(QStackedWidget):
         These window can be undocked and moved independently if the user desires.
         The NavBar can be used to select the visible window shown on the dock.
     """
+
     def __init__(self, app: "App", monitor: "Monitor", monitor_count):
         super().__init__()
         self.app = app
@@ -23,15 +24,21 @@ class Dock(QStackedWidget):
         self.setFixedSize(1920, 1080)
         self.widgetRemoved.connect(self.on_dock_change)  # Will run when a window is docked/undocked
         # Update the dock's title to be the same as the currently visible window
-        self.currentChanged.connect(lambda _: self.setWindowTitle(self.currentWidget().windowTitle()))
+        self.currentChanged.connect(self.on_current_window_change)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
         # Prevent undocking if only monitor is available
         self.dockable = monitor_count > 1
+
     def add_windows(self, *windows):
         for window in windows:
             self.addWidget(window)
         self.on_dock_change()
+
+    def on_current_window_change(self):
+        self.setWindowTitle(self.currentWidget().windowTitle())
+        self.currentWidget().nav.clear_layout()
+        self.currentWidget().nav.generate_layout()
 
     def on_dock_change(self):
         for i in range(self.count()):
