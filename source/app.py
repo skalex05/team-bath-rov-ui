@@ -133,6 +133,34 @@ class App(QApplication):
             Window {
                 background-color:rgb(30,30,30);
             }
+
+            QScrollArea#TaskList {
+                background-color:rgb(50,50,50);
+                color: white;
+
+            }
+            QWidget#TaskListContents {
+                background-color:rgb(50,50,50);
+                color: white;
+
+            }
+            QFrame {
+                background-color:rgb(30,30,30);
+                color: white;
+
+            }
+            QPlainTextEdit#Stdout {
+                background-color:rgb(50,50,50);
+                color: white;
+
+            }
+            QLabel {
+                color: white;
+            }
+
+            QRadioButton {
+                color:white;
+            }
         """
         self.setStyleSheet(dark_theme)
 

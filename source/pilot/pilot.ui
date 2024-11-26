@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1622</width>
-    <height>718</height>
+    <height>746</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -97,7 +97,7 @@
         <item>
          <widget class="QFrame" name="Background">
           <property name="styleSheet">
-           <string notr="true">background-color: rgb(30, 30, 30);</string>
+           <string notr="true"/>
           </property>
           <property name="frameShape">
            <enum>QFrame::Shape::StyledPanel</enum>
@@ -371,7 +371,7 @@ border-radius:89;</string>
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">background-color: rgb(30, 30, 30);</string>
+           <string notr="true"/>
           </property>
           <property name="frameShape">
            <enum>QFrame::Shape::StyledPanel</enum>
