@@ -5,8 +5,7 @@ import time
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, \
     QMessageBox
 
-from PyQt6.QtCore import QRect
-from PyQt6.QtGui import QTextCursor
+from PyQt6.QtCore import QRect, QTimer
 
 from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
 from action_thread import ActionThread
@@ -216,7 +215,7 @@ class Copilot(Window):
             self.maintain_depth_action.setText(f"Maintaining Depth ({depth} m)")
             print(f"Maintaining depth of {depth} m")
         else:
-            self.maintain_depth_action.setText(f"Maintain Depth")
+            self.maintain_depth_action.setText("Maintain Depth")
             if self.data.is_rov_connected():
                 print("No longer maintaining depth")
             else:
@@ -322,7 +321,7 @@ class Copilot(Window):
                 label.setText("ROV Disconnected")
 
         if not self.maintain_depth_action.isChecked():
-            self.maintain_depth_action.setText(f"Maintain Depth")
+            self.maintain_depth_action.setText("Maintain Depth")
 
     def update_float_data(self):
         if self.data.is_float_connected():
@@ -349,23 +348,66 @@ class Copilot(Window):
     def alert_attitude(self):
         QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
         print("Warning!", f"{'Roll is: '}{self.data.attitude.z}")
+        self.attitude_alert_timer = QTimer(self)
+        self.attitude_alert_timer.timeout.connect(self.attitude_alert_once_timeout)
+        self.attitude_alert_timer.start(20000)
 
     def alert_depth(self):
         QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
         print("Warning!", f"{'Depth is: '}{self.data.depth}")
+        self.depth_alert_timer = QTimer(self)
+        self.depth_alert_timer.timeout.connect(self.depth_alert_once_timeout)
+        self.depth_alert_timer.start(20000)
 
     def alert_ambient_pressure(self):
         QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
         print("Warning!", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        self.ambient_pressure_alert_timer = QTimer(self)
+        self.ambient_pressure_alert_timer.timeout.connect(self.ambient_pressure_alert_once_timeout)
+        self.ambient_pressure_alert_timer.start(20000)
 
     def alert_ambient_temperature(self):
         QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
         print("Warning!", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        self.ambient_temperature_alert_timer = QTimer(self)
+        self.ambient_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.ambient_temperature_alert_timer.start(20000)
 
     def alert_internal_temperature(self):
         QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
         print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        self.internal_temperature_alert_timer = QTimer(self)
+        self.internal_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.internal_temperature_alert_timer.start(20000)
 
     def alert_float_depth(self):
         QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
         print("Warning", f"{'Float depth: '}{self.data.float_depth}")
+        self.float_depth_alert_timer = QTimer(self)
+        self.float_depth_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.float_depth_alert_timer.start(10000)
+
+    def attitude_alert_once_timeout(self):
+        self.attitude_alert_timer.stop()
+        self.data.attitude_alert_once = False
+
+    def depth_alert_once_timeout(self):
+        self.depth_alert_timer.stop()
+        self.data.depth_alert_once = False
+
+    def ambient_pressure_alert_once_timeout(self):
+        self.ambient_pressure_alert_timer.stop()
+        self.data.ambient_pressure_alert_once = False
+
+    def ambient_temperature_alert_once_timeout(self):
+        self.ambient_temperature_alert_timer.stop()
+        self.data.ambient_temperature_alert_once = False
+
+    def internal_temperature_alert_once_timeout(self):
+        self.internal_temperature_alert_timer.stop()
+        self.data.internal_temperature_alert_once = False
+
+    def float_depth_alert_once_timeout(self):
+        self.float_depth_alert_timer.stop()
+        self.data.float_depth_alert_once = False
+
