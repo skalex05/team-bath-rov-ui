@@ -4,7 +4,7 @@ import os
 
 
 class Task(QWidget):
-    def __init__(self, app, title: str, description: str, start_time: tuple = (0, 0,)):
+    def __init__(self, app, title: str, description: str, start_time: tuple = (0, 0)):
         super().__init__()
         uic.loadUi(os.path.join("tasks", "task_widget.ui"), self)
 

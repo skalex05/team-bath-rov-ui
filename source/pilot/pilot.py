@@ -64,11 +64,20 @@ class Pilot(Window):
                 else:
                     up_next = task
                     break
-
-        self.current_title.setText(current.title)
-        self.description.setText(current.description)
-        self.up_next_title.setText(up_next.title)
-        self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
+        if current:
+            self.current_title.setText(current.title)
+            self.description.setText(current.description)
+        else:
+            self.current_title.setText("Complete")
+            self.description.setText("Congratulations!")
+            self.up_next_title.setText("Complete")
+            self.complete_by_label.setText("")
+        if up_next:
+            self.up_next_title.setText(up_next.title)
+            self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
+        else:
+            self.up_next_title.setText("Complete")
+            self.complete_by_label.setText("")
 
     def update_video_data(self, i: int):
         cam = self.cam_info[i]
