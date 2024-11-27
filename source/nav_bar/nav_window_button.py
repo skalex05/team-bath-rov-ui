@@ -16,6 +16,7 @@ class NavWindowButton(QPushButton):
         super().__init__(assoc_window.windowTitle())
         self.assoc_window = assoc_window
         self.nav_bar = nav_bar
+        self.setStyleSheet("""background-color:rgb(50,50,50); color: white;""")
 
     def on_click(self):
         # Change currently visible window

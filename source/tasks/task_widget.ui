@@ -16,6 +16,9 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <property name="spacing">
     <number>0</number>
@@ -40,6 +43,9 @@
        <bold>true</bold>
       </font>
      </property>
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
      <property name="text">
       <string>An Interesting Informative Title For This Task</string>
      </property>
@@ -58,6 +64,9 @@
        <pointsize>10</pointsize>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgba(255, 255, 255, 0);</string>
      </property>
      <property name="frameShape">
       <enum>QFrame::Shape::NoFrame</enum>
