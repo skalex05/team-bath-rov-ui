@@ -2,7 +2,6 @@ import sys
 from threading import ThreadError
 
 from PyQt6.QtCore import pyqtSignal
-from screeninfo import screeninfo
 
 from copilot.copilot import Copilot
 from datainterface.data_interface import DataInterface
@@ -48,27 +47,26 @@ class App(QApplication):
         self.tasks = list(sorted(self.tasks, key=lambda t: t.start_time[0] * 60 + t.start_time[1], reverse=True))
 
         # Get all monitors connected to the computer
-        monitors = screeninfo.get_monitors()
 
         # Assign each window to its own monitor if available
         pilot_monitor = 0
         copilot_monitor = 0
         graph_monitor = 0
-        if len(monitors) > 1:
+        if len(self.screens()) > 1:
             copilot_monitor = 1
             graph_monitor = 1
-        if len(monitors) > 2:
+        if len(self.screens()) > 2:
             graph_monitor = 2
 
         # Build the dock container
 
-        self.dock = Dock(self, monitors[copilot_monitor], len(monitors))
+        self.dock = Dock(self, self.screens()[copilot_monitor])
 
         # Create windows
 
-        self.copilot_window = Copilot(self, monitors[copilot_monitor])
-        self.pilot_window = Pilot(self, monitors[pilot_monitor])
-        self.grapher_window = Grapher(self, monitors[graph_monitor])
+        self.copilot_window = Copilot(self, self.screens()[copilot_monitor])
+        self.pilot_window = Pilot(self, self.screens()[pilot_monitor])
+        self.grapher_window = Grapher(self, self.screens()[graph_monitor])
 
         # Attach the navigation bars to these windows
 
@@ -80,10 +78,10 @@ class App(QApplication):
         self.dock.add_windows(self.copilot_window,self.pilot_window, self.grapher_window)
 
         # Undock windows if extra monitors are available
-        if len(monitors) > 1:
+        if len(self.screens()) > 1:
             self.pilot_window.nav.f_undock()
 
-        if len(monitors) > 2:
+        if len(self.screens()) > 2:
             self.grapher_window.nav.f_undock()
 
         self.dock.showFullScreen()
@@ -109,7 +107,6 @@ class App(QApplication):
             QScrollArea#TaskList {
                 background-color:rgb(50,50,50);
                 color: white;
-
             }
             QWidget#TaskListContents {
                 background-color:rgb(50,50,50);
@@ -121,15 +118,13 @@ class App(QApplication):
                 color: white;
 
             }
-            QPlainTextEdit#Stdout {
-                background-color:rgb(50,50,50);
-                color: white;
-
-            }
             QLabel {
                 color: white;
             }
-
+            QPlainTextEdit#Stdout {
+                background-color:rgb(50,50,50);
+                color: white;
+            }
             QRadioButton {
                 color:white;
             }
