@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1622</width>
-    <height>746</height>
+    <height>746</height>-
    </rect>
   </property>
   <property name="windowTitle">
@@ -46,6 +46,71 @@
      <property name="spacing">
       <number>10</number>
      </property>
+     <item row="0" column="1" rowspan="2" colspan="4">
+      <widget class="QLabel" name="label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>60</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>60</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>36</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Team Bath Hydrobotics</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignBottom|Qt::AlignmentFlag::AlignHCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="6" rowspan="2">
+      <spacer name="verticalSpacer_2">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Maximum</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>50</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="5">
+      <spacer name="verticalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Maximum</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
      <item row="1" column="5">
       <widget class="QLabel" name="WindowNameLabel">
        <property name="sizePolicy">
@@ -53,6 +118,12 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>30</height>
+        </size>
        </property>
        <property name="font">
         <font>
@@ -64,18 +135,34 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="6">
+     <item row="0" column="0" rowspan="2">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Fixed</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>50</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="2" column="6">
       <widget class="QWidget" name="pressure" native="true">
        <property name="minimumSize">
         <size>
-         <width>200</width>
-         <height>200</height>
+         <width>120</width>
+         <height>120</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>200</width>
-         <height>200</height>
+         <width>120</width>
+         <height>120</height>
         </size>
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout">
@@ -129,7 +216,7 @@
              <property name="styleSheet">
               <string notr="true">background-color: rgb(0, 0, 255);
 border:none;
-border-radius: 99px;</string>
+border-radius: 59px;</string>
              </property>
              <property name="frameShape">
               <enum>QFrame::Shape::StyledPanel</enum>
@@ -188,20 +275,25 @@ border-radius: 99px;</string>
                   <widget class="QFrame" name="RPB_Front">
                    <property name="minimumSize">
                     <size>
-                     <width>180</width>
-                     <height>180</height>
+                     <width>100</width>
+                     <height>100</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>180</width>
-                     <height>180</height>
+                     <width>100</width>
+                     <height>100</height>
                     </size>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>4</pointsize>
+                    </font>
                    </property>
                    <property name="styleSheet">
                     <string notr="true">background-color: rgb(0, 0, 127);
 border: none;
-border-radius:89;</string>
+border-radius:50;</string>
                    </property>
                    <property name="frameShape">
                     <enum>QFrame::Shape::StyledPanel</enum>
@@ -229,13 +321,13 @@ border-radius:89;</string>
                      <widget class="QLabel" name="rpb_kpa">
                       <property name="maximumSize">
                        <size>
-                        <width>200</width>
+                        <width>100</width>
                         <height>40</height>
                        </size>
                       </property>
                       <property name="font">
                        <font>
-                        <pointsize>18</pointsize>
+                        <pointsize>12</pointsize>
                        </font>
                       </property>
                       <property name="styleSheet">
@@ -253,13 +345,13 @@ border-radius:89;</string>
                      <widget class="QLabel" name="rpb_perc">
                       <property name="maximumSize">
                        <size>
-                        <width>200</width>
+                        <width>100</width>
                         <height>40</height>
                        </size>
                       </property>
                       <property name="font">
                        <font>
-                        <pointsize>18</pointsize>
+                        <pointsize>12</pointsize>
                        </font>
                       </property>
                       <property name="styleSheet">
@@ -288,15 +380,8 @@ border-radius:89;</string>
        </layout>
       </widget>
      </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="label_11">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" rowspan="2" colspan="2">
-      <widget class="QLabel" name="SecondaryCameraView1">
+     <item row="2" column="3" colspan="2">
+      <widget class="QLabel" name="SecondaryCameraView2">
        <property name="minimumSize">
         <size>
          <width>320</width>
@@ -326,7 +411,7 @@ border-radius:89;</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="5">
+     <item row="2" column="5">
       <widget class="QWidget" name="ambient_temp" native="true">
        <property name="minimumSize">
         <size>
@@ -361,13 +446,13 @@ border-radius:89;</string>
           <property name="minimumSize">
            <size>
             <width>70</width>
-            <height>0</height>
+            <height>150</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>80</width>
-            <height>16777215</height>
+            <height>150</height>
            </size>
           </property>
           <property name="styleSheet">
@@ -383,7 +468,7 @@ border-radius:89;</string>
            <property name="geometry">
             <rect>
              <x>20</x>
-             <y>170</y>
+             <y>105</y>
              <width>40</width>
              <height>40</height>
             </rect>
@@ -433,9 +518,9 @@ background-color: rgba(255, 255, 255, 0);</string>
            <property name="geometry">
             <rect>
              <x>30</x>
-             <y>30</y>
+             <y>10</y>
              <width>20</width>
-             <height>147</height>
+             <height>101</height>
             </rect>
            </property>
            <property name="styleSheet">
@@ -483,39 +568,14 @@ background-color: rgb(255, 255, 255);</string>
        </layout>
       </widget>
      </item>
-     <item row="2" column="3" rowspan="2" colspan="2">
-      <widget class="QLabel" name="SecondaryCameraView2">
-       <property name="minimumSize">
-        <size>
-         <width>320</width>
-         <height>180</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>512</width>
-         <height>288</height>
-        </size>
-       </property>
-       <property name="autoFillBackground">
-        <bool>false</bool>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::Shape::StyledPanel</enum>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="pixmap">
-        <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1" rowspan="3" colspan="4">
+     <item row="3" column="1" rowspan="4" colspan="4">
       <widget class="QLabel" name="MainCameraView">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="minimumSize">
         <size>
          <width>704</width>
@@ -525,7 +585,7 @@ background-color: rgb(255, 255, 255);</string>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>500</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="autoFillBackground">
@@ -545,56 +605,55 @@ background-color: rgb(255, 255, 255);</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="1" rowspan="2" colspan="4">
-      <widget class="QLabel" name="label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>50</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>50</height>
-        </size>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>36</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string>Team Bath Hydrobotics</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0" rowspan="3">
+     <item row="2" column="0" rowspan="2">
       <layout class="QGridLayout" name="CurrentTaskInfo">
        <property name="spacing">
         <number>0</number>
        </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="ObjectiveLabel">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>16</pointsize>
+           <bold>true</bold>
+           <kerning>false</kerning>
+          </font>
+         </property>
+         <property name="toolTipDuration">
+          <number>-1</number>
+         </property>
+         <property name="text">
+          <string>Objective</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
        <item row="5" column="0">
         <widget class="QLabel" name="UpNextTitle">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>20</height>
+           <height>30</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>250</width>
-           <height>40</height>
+           <height>90</height>
           </size>
          </property>
          <property name="font">
@@ -605,6 +664,31 @@ background-color: rgb(255, 255, 255);</string>
          </property>
          <property name="text">
           <string>Title</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="CompleteBy">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Complete By:</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
@@ -648,6 +732,43 @@ background-color: rgb(255, 255, 255);</string>
          </property>
         </widget>
        </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="CurrentTitle">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>250</width>
+           <height>90</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Title</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
        <item row="4" column="0">
         <widget class="QLabel" name="UpNextLabel">
          <property name="maximumSize">
@@ -670,95 +791,70 @@ background-color: rgb(255, 255, 255);</string>
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="CompleteBy">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>30</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Complete By:</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="ObjectiveLabel">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>30</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>16</pointsize>
-           <bold>true</bold>
-           <kerning>false</kerning>
-          </font>
-         </property>
-         <property name="toolTipDuration">
-          <number>-1</number>
-         </property>
-         <property name="text">
-          <string>Objective</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="CurrentTitle">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>30</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>250</width>
-           <height>40</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Title</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
       </layout>
+     </item>
+     <item row="2" column="1" colspan="2">
+      <widget class="QLabel" name="SecondaryCameraView1">
+       <property name="minimumSize">
+        <size>
+         <width>320</width>
+         <height>180</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>512</width>
+         <height>288</height>
+        </size>
+       </property>
+       <property name="autoFillBackground">
+        <bool>false</bool>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::Shape::StyledPanel</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="pixmap">
+        <pixmap>../../../../Downloads/HYDROROBOTICSLOGO.png</pixmap>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="5" rowspan="4" colspan="2">
+      <spacer name="verticalSpacer_5">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Minimum</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="4" column="0" rowspan="3">
+      <spacer name="verticalSpacer_4">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Minimum</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>
