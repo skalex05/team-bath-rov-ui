@@ -13,10 +13,10 @@ import numpy as np
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtGui import QImage
 
-from float_data import FloatData
-from rov_data import ROVData
-from video_stream import VideoStream
-from data_interface.vector3 import Vector3
+from datainterface.float_data import FloatData
+from datainterface.rov_data import ROVData
+from datainterface.video_stream import VideoStream
+from datainterface.vector3 import Vector3
 
 if TYPE_CHECKING:
     from window import Window
