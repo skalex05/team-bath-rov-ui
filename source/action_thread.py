@@ -17,12 +17,14 @@ class ActionThread(Thread):
         kwargs["target"] = target
         super().__init__(**kwargs)
         action.clicked.connect(self.check_run)
+
     def check_run(self):
         if self.is_alive():
             self.action.setChecked(not self.action.isChecked())
             return
         else:
             self.start()
+
     def run(self):
         if not self.retain_state:
             self.action.setChecked(True)

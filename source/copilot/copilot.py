@@ -2,13 +2,16 @@ import os
 import subprocess
 import time
 
-from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea
+from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, \
+    QMessageBox
 
-from PyQt6 import QtCore
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, QTimer
 
-from data_interface.data_interface import DataInterface
+from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
 from action_thread import ActionThread
+from datainterface.action_enum import ActionEnum
+from datainterface.sock_stream_send import SockSend
+from datainterface.video_stream import VideoStream
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -20,6 +23,11 @@ DURATION_INT = 900
 class Copilot(Window):
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "copilot.ui"), *args)
+
+        # Appearance
+
+        self.v_pad = 5
+        self.v_dp = 2
 
         self.data: DataInterface | None = None
 
@@ -36,12 +44,6 @@ class Copilot(Window):
         self.ambient_pressure_value: QLabel = self.findChild(QLabel, "AmbientPressureValue")
         self.internal_temp_value: QLabel = self.findChild(QLabel, "InternalTempValue")
 
-        self.main_sonar_value: QLabel = self.findChild(QLabel, "MainSonarValue")
-        self.FL_sonar_value: QLabel = self.findChild(QLabel, "FLSonarValue")
-        self.FR_sonar_value: QLabel = self.findChild(QLabel, "FRSonarValue")
-        self.BR_sonar_value: QLabel = self.findChild(QLabel, "BRSonarValue")
-        self.BL_sonar_value: QLabel = self.findChild(QLabel, "BLSonarValue")
-
         self.actuator1_value: QLabel = self.findChild(QLabel, "Actuator1Value")
         self.actuator2_value: QLabel = self.findChild(QLabel, "Actuator2Value")
         self.actuator3_value: QLabel = self.findChild(QLabel, "Actuator3Value")
@@ -54,7 +56,6 @@ class Copilot(Window):
         # Timer
 
         self.time_left_int = DURATION_INT
-        self.my_timer = QtCore.QTimer(self)
 
         self.startTimeButton = self.findChild(QPushButton, "startTimeButton")
         self.startTimeButton.clicked.connect(self.start_timer)
@@ -78,14 +79,6 @@ class Copilot(Window):
         self.rov_power_action_thread = ActionThread(self.rov_power_action, retain_state=True,
                                                     target=self.on_rov_power)
 
-        self.check_thrusters_action: QRadioButton = self.findChild(QRadioButton, "CheckThrustersAction")
-        self.check_thrusters_action_thread = ActionThread(self.check_thrusters_action,
-                                                          target=self.check_thrusters)
-
-        self.check_actuators_action: QRadioButton = self.findChild(QRadioButton, "CheckActuatorsAction")
-        self.check_actuators_action_thread = ActionThread(self.check_actuators_action,
-                                                          target=self.check_actuators)
-
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action_thread = ActionThread(self.maintain_depth_action, retain_state=True,
                                                          target=self.maintain_depth)
@@ -96,7 +89,10 @@ class Copilot(Window):
 
         self.connect_float_action: QRadioButton = self.findChild(QRadioButton, "ConnectFloatAction")
         self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
-                                                                target=self.connect_float)
+                                                        target=self.connect_float)
+
+        self.reset_alerts_action: QRadioButton = self.findChild(QRadioButton, "ResetAlerts")
+        self.reset_alerts_action_thread = ActionThread(self.reset_alerts_action, self.reset_alerts)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
@@ -118,6 +114,14 @@ class Copilot(Window):
         self.data.video_stream_update.connect(self.update_video)
         self.data.stdout_update.connect(self.update_stdout)
 
+        # Alert connect
+        self.data.attitude_alert.connect(self.alert_attitude)
+        self.data.depth_alert.connect(self.alert_depth)
+        self.data.ambient_pressure_alert.connect(self.alert_ambient_pressure)
+        self.data.ambient_temperature_alert.connect(self.alert_ambient_temperature)
+        self.data.internal_temperature_alert.connect(self.alert_internal_temperature)
+        self.data.float_depth_alert.connect(self.alert_float_depth)
+
     # Timer Functions
 
     @staticmethod
@@ -128,24 +132,24 @@ class Copilot(Window):
         return minsec
 
     def start_timer(self):
-        if not self.my_timer.isActive():
+        if not self.data.timer.isActive():
             try:
-                self.my_timer.timeout.disconnect(self.timer_timeout)
+                self.data.timer.timeout.disconnect(self.timer_timeout)
             except TypeError:
                 pass
 
-            self.my_timer.timeout.connect(self.timer_timeout)
-            self.my_timer.setInterval(1000)
-            self.my_timer.start()
+            self.data.timer.timeout.connect(self.timer_timeout)
+            self.data.timer.setInterval(1000)
+            self.data.timer.start()
             self.stop_time_button.setText("Stop")
 
     def stop_timer(self):
-        if not self.my_timer.isActive():
+        if not self.data.timer.isActive():
             # If the timer is inactive, reset the timer
             self.time_left_int = DURATION_INT
             self.app.reset_task_completion()
             self.update_time()
-        self.my_timer.stop()
+        self.data.timer.stop()
         self.stop_time_button.setText("Reset")
 
     def timer_timeout(self):
@@ -181,10 +185,13 @@ class Copilot(Window):
 
     def on_rov_power(self):
         if self.rov_power_action.isChecked():
-            self.rov_power_action.setChecked(False)
-            self.app.rov_data_source_proc = subprocess.Popen(["python.exe", "data_interface//rov_data_source.py"])
             print("Powering On!")
-            time.sleep(2)
+            self.rov_power_action.setChecked(False)
+            if os.name == "nt":
+                ex = "python.exe"
+            else:
+                ex = "python3"
+            self.app.rov_data_source_proc = subprocess.Popen([ex, "datainterface//rov_dummy.py"])
             print("Power On!")
             self.rov_power_action.setChecked(True)
         else:
@@ -192,69 +199,55 @@ class Copilot(Window):
             print("Powering Off!")
             self.app.rov_data_source_proc.terminate()
             self.app.rov_data_source_proc = None
-            time.sleep(2)
-            print("Power Off!")
             self.rov_power_action.setChecked(False)
+            if self.maintain_depth_action.isChecked():
+                self.maintain_depth_action.setChecked(False)
+                self.maintain_depth()
 
-    def check_thrusters(self):
-        print("Checking Thrusters...")
-        time.sleep(3)
-        print("Thrusters working correctly")
-
-    def check_actuators(self):
-        print("Checking Arm Actuators...")
-        time.sleep(3)
-        print("Arm Actuators working correctly")
+            print("Power Off!")
 
     def maintain_depth(self):
-        if self.maintain_depth_action.isChecked():
-            self.maintain_depth_action.setText(f"Maintaining depth ({self.app.data_interface.depth} m)")
-            print(f"Maintaining depth of {self.app.data_interface.depth} m")
+        depth = self.data.depth
+        if self.data.is_rov_connected():
+            SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH,
+                                               self.maintain_depth_action.isChecked(), depth))
+        if self.maintain_depth_action.isChecked() and self.data.is_rov_connected():
+            self.maintain_depth_action.setText(f"Maintaining Depth ({depth} m)")
+            print(f"Maintaining depth of {depth} m")
         else:
-            print("No longer maintaining depth")
+            self.maintain_depth_action.setText("Maintain Depth")
+            if self.data.is_rov_connected():
+                print("No longer maintaining depth")
+            else:
+                self.maintain_depth_action.setChecked(False)
 
     def reinitialise_cameras(self):
         # Check cameras aren't already being initialised
-        finished = True
-        for camera in self.data.camera_feeds:
-            finished = finished and not camera.initialising
-
-        if finished:
-            # User must wait for all cameras to finish reinitialising before starting again
-            for feed in self.data.camera_feeds:
-                if feed.initialising:
-                    return
-
-            for feed in self.data.camera_feeds:
-                feed.start_init_camera_feed()
-
-        finished = False
-        initialised = True
-        while not finished:
-            initialised = True
-            finished = True
-            for camera in self.data.camera_feeds:
-                finished = finished and not camera.initialising
-                initialised = initialised and camera.initialised
-
-        if initialised:
-            print("All Cameras Initialised Successfully!")
-        else:
-            print("Some cameras failed to initialise. Try again.")
-
+        if self.data.is_rov_connected():
+            SockSend(self.app, ROV_IP, 52527, ActionEnum.REINIT_CAMS)
+        time.sleep(1)
         self.reinitialise_cameras_action.setChecked(False)
 
-    @staticmethod
-    def set_sonar_value(widget: QWidget, value: int, value_max: int = 200):
-        if value > value_max:
-            widget.setText(f">{value_max} cm")
-        else:
-            widget.setText(f"{value} cm")
+    def reset_alerts(self):
+        self.data.attitude_alert_once = False
+        self.data.depth_alert_once = False
+        self.data.ambient_temperature_alert_once = False
+        self.data.ambient_pressure_alert_once = False
+        self.data.internal_temperature_alert_once = False
+        self.data.float_depth_alert_once = False
+        # Uncheck button trick
+        self.reset_alerts_action.setAutoExclusive(False)
+        self.reset_alerts_action.setChecked(False)
+        self.reset_alerts_action.setAutoExclusive(True)
 
     def connect_float(self):
         if self.connect_float_action.isChecked():
             self.connect_float_action.setChecked(False)
-            self.app.float_data_source_proc = subprocess.Popen(["python.exe", "data_interface//float_data_source.py"])
+            try:
+                self.app.float_data_source_proc = subprocess.Popen(
+                    ["python.exe", "datainterface//float_data_source.py"])
+            except FileNotFoundError:
+                self.app.float_data_source_proc = subprocess.Popen(["python3", "datainterface//float_data_source.py"])
             print("Connecting...")
             time.sleep(2)
             print("Connected!")
@@ -270,62 +263,68 @@ class Copilot(Window):
             self.connect_float_action.setChecked(False)
             self.connect_float_action.setText("Connect Float")
 
-    def update_stdout(self):
+    def update_stdout(self, source, line):
         # Display latest data for window
-        adjust = len(self.data.lines_to_add) > 0
-        for i in range(len(self.data.lines_to_add)):
-            line = self.data.lines_to_add.popleft()
-            self.stdout_window.insertPlainText(line + "\n")
+        if source == StdoutType.UI:
+            line = "[UI] - " + line
+        elif source == StdoutType.UI_ERROR:
+            line = "[UI ERR] - " + line
+        elif source == StdoutType.ROV:
+            line = "[ROV] - " + line
+        elif source == StdoutType.ROV_ERROR:
+            line = "[ROV ERR] - " + line
 
-        if adjust:
+        self.stdout_window.appendPlainText(line)
+
+        # Scroll to bottom if scrollbar is less than 5 from bottom
+        if self.stdout_window.verticalScrollBar().maximum() - self.stdout_window.verticalScrollBar().value() < 5:
             self.stdout_window.ensureCursorVisible()
 
     def update_rov_data(self):
-        if self.data.rov_connected:
+        if self.data.is_rov_connected():
             t = self.data.attitude
-            self.rov_attitude_value.setText(f"{t.x:<5}°, {t.y:<5}°, {t.z:<5}°")
+            self.rov_attitude_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
             t = self.data.angular_acceleration
-            self.rov_angular_accel_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_angular_accel_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.angular_velocity
-            self.rov_angular_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_angular_velocity_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.acceleration
-            self.rov_acceleration_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_acceleration_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
             t = self.data.velocity
-            self.rov_velocity_value.setText(f"{t.x:<5}, {t.y:<5}, {t.z:<5} m/s")
+            self.rov_velocity_value.setText(
+                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
 
-            self.rov_depth_value.setText(f"{self.data.depth} m")
-            self.ambient_water_temp_value.setText(f"{self.data.ambient_pressure}°C")
-            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure} KPa")
-            self.internal_temp_value.setText(f"{self.data.internal_temperature} °C")
+            self.rov_depth_value.setText(f"{self.data.depth:<{self.v_pad}.{self.v_dp}f} m")
+            self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature:<{self.v_pad}.{self.v_dp}f}°C")
+            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure:<{self.v_pad}.{self.v_dp}f} KPa")
+            self.internal_temp_value.setText(f"{self.data.internal_temperature:<{self.v_pad}.{self.v_dp}f} °C")
 
-            self.set_sonar_value(self.main_sonar_value, self.data.main_sonar)
-            self.set_sonar_value(self.FR_sonar_value, self.data.FR_sonar)
-            self.set_sonar_value(self.FL_sonar_value, self.data.FL_sonar)
-            self.set_sonar_value(self.BR_sonar_value, self.data.BR_sonar)
-            self.set_sonar_value(self.BL_sonar_value, self.data.BL_sonar)
+            self.actuator1_value.setText(f"{int(self.data.actuator_1):>3} %")
+            self.actuator2_value.setText(f"{int(self.data.actuator_2):>3} %")
+            self.actuator3_value.setText(f"{int(self.data.actuator_3):>3} %")
+            self.actuator4_value.setText(f"{int(self.data.actuator_4):>3} %")
+            self.actuator5_value.setText(f"{int(self.data.actuator_5):>3} %")
+            self.actuator6_value.setText(f"{int(self.data.actuator_6):>3} %")
 
-            self.actuator1_value.setText(f"{self.data.actuator_1:>3} %")
-            self.actuator2_value.setText(f"{self.data.actuator_2:>3} %")
-            self.actuator3_value.setText(f"{self.data.actuator_3:>3} %")
-            self.actuator4_value.setText(f"{self.data.actuator_4:>3} %")
-            self.actuator5_value.setText(f"{self.data.actuator_5:>3} %")
-            self.actuator6_value.setText(f"{self.data.actuator_6:>3} %")
         else:
             pass
 
             for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
                           self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
                           self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
-                          self.main_sonar_value, self.FR_sonar_value, self.FL_sonar_value, self.BR_sonar_value,
-                          self.BL_sonar_value, self.actuator1_value, self.actuator2_value, self.actuator3_value,
+                          self.actuator1_value, self.actuator2_value, self.actuator3_value,
                           self.actuator4_value, self.actuator5_value, self.actuator6_value]:
                 label.setText("ROV Disconnected")
 
         if not self.maintain_depth_action.isChecked():
-            self.maintain_depth_action.setText(f"Maintain Depth({self.data.depth} m)")
+            self.maintain_depth_action.setText("Maintain Depth")
 
     def update_float_data(self):
-        if self.data.float_connected:
+        if self.data.is_float_connected():
             self.float_depth_value.setText(f"{self.data.float_depth} m")
         else:
             self.float_depth_value.setText("Float Disconnected")
@@ -335,12 +334,80 @@ class Copilot(Window):
             return
         try:
             frame = self.data.camera_feeds[0]
-            if frame.camera_frame:
+            if frame:
                 rect = self.main_cam.geometry()
-                self.main_cam.setPixmap(frame.generate_pixmap(rect.width(), rect.height()))
+                self.main_cam.setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
             else:
                 raise IndexError()
         except IndexError:
-            self.main_cam.setText("Main Camera Is Unavailable")
+            self.main_cam.setText("Main Camera Disconnected")
 
         self.update()
+
+    # Alert messages, need upgrade
+    def alert_attitude(self):
+        QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
+        print("Warning!", f"{'Roll is: '}{self.data.attitude.z}")
+        self.attitude_alert_timer = QTimer(self)
+        self.attitude_alert_timer.timeout.connect(self.attitude_alert_once_timeout)
+        self.attitude_alert_timer.start(20000)
+
+    def alert_depth(self):
+        QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
+        print("Warning!", f"{'Depth is: '}{self.data.depth}")
+        self.depth_alert_timer = QTimer(self)
+        self.depth_alert_timer.timeout.connect(self.depth_alert_once_timeout)
+        self.depth_alert_timer.start(20000)
+
+    def alert_ambient_pressure(self):
+        QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        print("Warning!", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        self.ambient_pressure_alert_timer = QTimer(self)
+        self.ambient_pressure_alert_timer.timeout.connect(self.ambient_pressure_alert_once_timeout)
+        self.ambient_pressure_alert_timer.start(20000)
+
+    def alert_ambient_temperature(self):
+        QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        print("Warning!", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        self.ambient_temperature_alert_timer = QTimer(self)
+        self.ambient_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.ambient_temperature_alert_timer.start(20000)
+
+    def alert_internal_temperature(self):
+        QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        self.internal_temperature_alert_timer = QTimer(self)
+        self.internal_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.internal_temperature_alert_timer.start(20000)
+
+    def alert_float_depth(self):
+        QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
+        print("Warning", f"{'Float depth: '}{self.data.float_depth}")
+        self.float_depth_alert_timer = QTimer(self)
+        self.float_depth_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.float_depth_alert_timer.start(10000)
+
+    def attitude_alert_once_timeout(self):
+        self.attitude_alert_timer.stop()
+        self.data.attitude_alert_once = False
+
+    def depth_alert_once_timeout(self):
+        self.depth_alert_timer.stop()
+        self.data.depth_alert_once = False
+
+    def ambient_pressure_alert_once_timeout(self):
+        self.ambient_pressure_alert_timer.stop()
+        self.data.ambient_pressure_alert_once = False
+
+    def ambient_temperature_alert_once_timeout(self):
+        self.ambient_temperature_alert_timer.stop()
+        self.data.ambient_temperature_alert_once = False
+
+    def internal_temperature_alert_once_timeout(self):
+        self.internal_temperature_alert_timer.stop()
+        self.data.internal_temperature_alert_once = False
+
+    def float_depth_alert_once_timeout(self):
+        self.float_depth_alert_timer.stop()
+        self.data.float_depth_alert_once = False
+

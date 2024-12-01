@@ -1,3 +1,5 @@
+import math
+import time
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QRect, QPoint
@@ -34,8 +36,6 @@ class NavBar(QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
-        self.oldPos = self.pos()
-
     def generate_layout(self):
         if self.dock is None:
             return
@@ -53,7 +53,7 @@ class NavBar(QWidget):
 
         # If there is more than one window in the app and if more than one window is available.
         # Then the window can be docked/undocked
-        if not (single and self.docked) and self.dock.dockable:
+        if not (single and self.docked) and self.dock.is_dockable():
             self.dockable_widget = QPushButton("Undock" if self.docked else "Dock")
             self.dockable_widget.setMaximumWidth(80)
             self.dockable_widget.clicked.connect(lambda _: self.f_undock() if self.docked else self.f_dock())
@@ -116,23 +116,24 @@ class NavBar(QWidget):
         self.dock.removeWidget(self.parent_window)
         self.top_window = self.parent_window
         self.parent_window.setParent(None)
-        self.parent_window.setGeometry(self.parent_window.desired_monitor.x,
-                                       self.parent_window.desired_monitor.y,
-                                       self.parent_window.geometry().width(),
-                                       self.parent_window.geometry().height())
-        self.parent_window.showMaximized()
+        self.parent_window.setGeometry(self.parent_window.desired_monitor.availableGeometry())
+        self.parent_window.showFullScreen()
         self.clear_layout()
         self.generate_layout()
 
         self.parent_window.show()
 
-    def mousePressEvent(self, event):
-        self.oldPos = event.globalPosition()
-
     def mouseReleaseEvent(self, event):
-        self.top_window.showMaximized()
+        chosen_screen = self.app.screens()[0]
+        x, y = (event.globalPosition().x(), event.globalPosition().y())
+        print(x,y, "\n")
+        for screen in self.app.screens():
+            geom = screen.geometry()
+            print(geom)
+            if geom.x() <= x <= geom.x()+geom.width() and geom.y() <= y <= geom.y()+geom.height():
+                chosen_screen = screen
+                break
 
-    def mouseMoveEvent(self, event):
-        delta = event.globalPosition() - self.oldPos
-        self.top_window.move(QPoint(int(self.top_window.x() + delta.x()), int(self.top_window.y() + delta.y())))
-        self.oldPos = event.globalPosition()
+        self.top_window.setGeometry(chosen_screen.geometry())
+        self.clear_layout()
+        self.generate_layout()

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QStackedWidget
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QScreen
 
 if TYPE_CHECKING:
     from screeninfo import Monitor
@@ -14,24 +15,30 @@ class Dock(QStackedWidget):
         These window can be undocked and moved independently if the user desires.
         The NavBar can be used to select the visible window shown on the dock.
     """
-    def __init__(self, app: "App", monitor: "Monitor", monitor_count):
+
+    def __init__(self, app: "App", screen: QScreen):
         super().__init__()
         self.app = app
 
         # Create a frameless 1920x1080 window
-        self.setGeometry(monitor.x, monitor.y, monitor.width, monitor.height)
-        self.setFixedSize(1920, 1080)
+        self.setGeometry(screen.availableGeometry())
         self.widgetRemoved.connect(self.on_dock_change)  # Will run when a window is docked/undocked
         # Update the dock's title to be the same as the currently visible window
-        self.currentChanged.connect(lambda _: self.setWindowTitle(self.currentWidget().windowTitle()))
+        self.currentChanged.connect(self.on_current_window_change)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
-        # Prevent undocking if only monitor is available
-        self.dockable = monitor_count > 1
+    def is_dockable(self):
+        return len(self.app.screens()) > 1
+
     def add_windows(self, *windows):
         for window in windows:
             self.addWidget(window)
         self.on_dock_change()
+
+    def on_current_window_change(self):
+        self.setWindowTitle(self.currentWidget().windowTitle())
+        self.currentWidget().nav.clear_layout()
+        self.currentWidget().nav.generate_layout()
 
     def on_dock_change(self):
         for i in range(self.count()):

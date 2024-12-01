@@ -165,3 +165,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 /.qtcreator
+source/.qtcreator/project.json.user
+source/.qtcreator/project.json.user.f2bb0a0

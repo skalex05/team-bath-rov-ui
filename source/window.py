@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+from PyQt6.QtGui import QScreen
+
 from nav_bar.nav_bar import NavBar
 
 if TYPE_CHECKING:
@@ -17,24 +19,15 @@ class Window(QFrame):
         Allows for consistent styling of the windows.
         Specific windows should inherit this class for proper usage.
     """
-    def __init__(self, file, app: "App", monitor: Monitor):
+    def __init__(self, file, app: "App", screen: QScreen):
         super().__init__()
         self.nav = None
         self.app = app
-        self.desired_monitor = monitor  # When undocked, this window will be displayed on this monitor
-
+        self.desired_monitor = screen  # When undocked, this window will be displayed on this monitor
         # Load a .ui file into this window
         uic.loadUi(file, self)
         # Position the window and remove the default window frame
-        #self.resize(1920, 1080)
-        
-        # self.setGeometry(monitor.x, monitor.y, monitor.width, 1080)
-        #change to monitor width monitor height and adjust qt grid layout
-        #print window size
-
-        print(1920, 1080)
-    
-
+        self.setGeometry(screen.availableGeometry())
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
     def attach_nav_bar(self, dock):

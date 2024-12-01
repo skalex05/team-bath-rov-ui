@@ -93,17 +93,26 @@ This object inherits `QWidget` and is used to store information about a particul
 ## DataInterface Object
 
 The `DataInterface` is used to store the current state of the ROV/Float, stdout from the UI and from the ROV and ROV video streams.
+
 This object centrally manages multiple threads, which are each responsible of processing data from a socket connection. 
-Each thread will **emit** a different **signal** when new data is recieved/connction is lost.
-Each thread will connect to its own **socket** with a unique **port** number.
 
-A **socket** may be of type `SOCK_STREAM` which uses **TCP** to transfer data. Use this when it is neccessary **all** data should be recieved.
-A **socket** may insteda use type `SOCK_DGRAM` which uses **UDP**. Use this where packet loss is acceptable and not all data needs to be recieved.
+**Attributes:**
 
-- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SOCK_DGRAM`
-- `Float Data Thread` - Emits `float_data_update` - **Port 52526** - `SOCK_DGRAM`
-- `Video Stream Thread`(s - One for each video stream) - SOCKETS NOT YET IMPLEMENTED
-- `Stdout Thread` - SOCKET NOT YET IMPLEMENTED
+There are attributes for the ROV and float. These attribute names should match exactly to those specified by the `ROVData` and `FloatData` classes.
+
+
+**Threads:**
+
+Some threads will **emit** a **signal** periodically such as if connection is lost or new data has been receieved.
+
+Some threads will be of type `SockStreamRecv` or `SockStreamSend` if they are **constantly** receiving/sending data.
+
+- `Video Stream Thread`(s - One for each video stream) - Emits `video_stream_update(int)` -  **Port 52524**/**Port 52523**/**Port 52522** - `SockStreamRecv`
+- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SockStreamRecv`
+- `ROV Controller Input Thread` - No Emission - **Port 52526** - `SockStreamSend`
+- `Stdout UI Thread` - Emits `stdout_update(StdoutType, str)`
+- `Stdout ROV Thread` - Emits `stdout_update(StdoutType, str)` - `SockStreamRecv`
+- `Float Data Thread` - Emits `float_data_update` - **Port 52625** - `SockStreamRecv`
 
 **Signals:**
 
@@ -111,83 +120,160 @@ These sockets can be connceted to by windows if they are supposed to display inf
 
 - `rov_data_update()`
 - `float_data_update()`
-- `video_stream_update()`
-- `stdout_update()`
+- `video_stream_update(int)`
+- `stdout_update(StdoutType, str)`
 
 **Methods:**
 
 Each Thread has it's own function that it runs which are contained inside this class:
 
-- `f_rov_data_thread()` - Updates `DataInterface` attributes to the values to the newest `ROVData`recieved.
-- `f_float_data_thread()` - Updates `DataInterface` attributes to the values to the newest `FloatData`recieved.
-- `f_video_stream_thread()` - Calls `update_camera_frame()` for each `VideoStream`
-- `f_stdout_thread()` - Currently just moves stdout from a redirected output buffer into another buffer that is consumed by the `Copilot` window to display new stdout.
+- `is_rov_connected()` - Check if the ROV is connected to the UI.
+- `is_float_connected()` - Check if Float is connected to the UI.
+- `is_controller_connected()` - Check if a controller is connected to the UI.
+- `on_rov_data_sock_recv(payload_bytes)` - Takes in bytes from the `ROV Data Thread` and updates ROV attributes in the `DataInterface`. Emits the `rov_data_update()` signal.
+- `on_float_data_sock_recv(payload_bytes)` - Takes in bytes from the `Float Data Thread` and Updates Float attributes in the `DataInterface`. Emits the `float_data_update()` signal.
+- `on_video_stream_sock_recv(payload_bytes, i)`  Takes in bytes from a `Video Stream Thread` for the *i*th camera and updates `DataInterface.camera_feeds[i]` with the newest frame. Emits `video_stream_update(int)`
+- `f_stdout_thread()` - Captures internal UI stdout. Emits the `stdout_update(StdoutType, str)` signal.
+- `on_stdout_sock_recv(payload_bytes)` - Listens for stdout sent across from the ROV. Emits the `stdout_update(StdoutType, str)`
+- `get_controller_input()` - Called by the `ROV Controller Input Thread` and returns controller input. 
 
 - `close()`
+
+## StdoutTypes
+
+This is an enum class to help represent the types of `stdout` that should be displayed in the window. This includes the following:
+
+- `UI` - General stdout from UI processes will have this type.
+- `UI ERR` - Internal errors within the UI will have this type.
+- `ROV` - General stdout sent across the stdout socket for the ROV.
+- `ROV ERR` - Any errors reported from the ROV via the stdout socket.
 
 ## ROVData
 
 This is a **pickleable** object containing metrics from the ROV which are sent across a socket to be recieved by the UI process.
 
-Attribute names in `ROVData` must match exactly to a corresponding attibute in `DataInterface`.
+Attribute names in `ROVData` **must match exactly** to a corresponding attibute in `DataInterface`.
 
 **Attributes:**
 
-- `attitude`
-- `angular_acceleration`
-- `angular_velocity`
-- `acceleration`
-- `velocity`
-- `depth`
-- `ambient_temperature`
-- `ambient_pressure`
-- `internal_temperature `
-
-- `main_sonar`
-- `FL_sonar`
-- `FR_sonar`
-- `BR_sonar`
-- `BL_sonar`
-
-- `actuator_1`
-- `actuator_2`
-- `actuator_3`
-- `actuator_4`
-- `actuator_5`
-- `actuator_6`
+- `attitude` - Vector3
+- `angular_acceleration` - Vector3
+- `angular_velocity` - Vector3
+- `acceleration` - Vector3
+- `velocity` - Vector3
+- `depth` - float
+- `ambient_temperature` - float
+- `ambient_pressure` - float
+- `internal_temperature ` - float
+- `cardinal_direction` - float
+- `grove_water_sensor` - float
+- `actuator_1` - float
+- `actuator_2` - float
+- `actuator_3` - float
+- `actuator_4` - float
+- `actuator_5` - float
+- `actuator_6` - float
 
 ## FloatData
 
 This is a **pickleable** object containing metrics from the Float which are sent across a socket to be recieved by the UI process.
 
-Attribute names in `FloatData` must match exactly to a corresponding attibute in `DataInterface`.
+Attribute names in `FloatData` **must match exactly** to a corresponding attibute in `DataInterface`.
 
 **Attributes:**
 
-- `float_depth`
+- `float_depth` - float
 
 ## VideoStream Object
 
-*Note:*
-
-*Some of this code may need to be altered/moved to the ROV itself when video feed is received from the ROV rather than from local webcams.*
-
-****
-
 This is used to store information related to the camera feeds on the ROV.
 
-The key argument of this object is the `camera_frame` which stores a **numpy**-style 2D array of pixels of what the video feed is currently receiving.
-This is not to be confused with `camera_feed` which is a `cv2.VideoCapture` object to read frames from.
+The key argument of this object is the `camera_frame` which stores a 3D **numpy** array of pixels of shape `height,width,channels` of what the video feed is currently receiving.
+This is not to be confused with `camera_feed` which is a `cv2.VideoCapture` object to read frames from. 
+
+The array stored in `camera_frame` is sent across a socket where it is recieved by the `DataInterface` and the UI is updated acordingly.
 
 **Methods:**
 
 - `start_init_camera_feed()` - This creates a thread which runs `init_camera_feed()`
 - `init_camera_feed()` - This function attempts to read a frame from the `camera_feed`. If it is successful, it will **emit** the `camera_initialised` signal in the `App` object. Otherwise, it will attempt several more times by recursively calling the function until a maximum number of attempts is reached. At which point, the user must press the `Reinitialise Cameras` action to restart this process. 
 - `update_camera_frame()` - The data in `camera_frame` is updated with the newest data read from `camera_feed` *(Note: Testing is needed to see what happens when an initialised camera feed suddenly becomes unavailable. Program should identify and deal with this gracefully beyond just flooding the console with "Could not read...")*
-- `generate_pixmap(target_width, target_height)` - translates the `camera_frame` into a `QPixmap` object of a desired size. Aspect ratio of the image is maintained.
+- `generate_pixmap(camera_frame, target_width, target_height)` - a static method for translating a 3D numpy array `camera_frame` into a `QPixmap` object of a desired size. Aspect ratio of the image is maintained.
+
+## SOCK_STREAM Threads
+
+The following two classes provide a robust protocol for sending and receiving various different messages over SOCK_STREAM sockets.
+
+### SockStreamRecv
+
+**Init Parameters:**
+
+- `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
+- `connected` - A boolean that indicates if a connection is sending data.
+- `addr` - The **IP Address** that the connection will be bound to.
+- `port` - The port the socket is bound to. 
+- `on_recv` - A function that can be passed which will be called whenever a new message is recieved.
+- `on_disconnect` - A function that can be passed which will be called whenever a socket connection closes.
+
+**Protocol:**
+
+1. Listen for a new connection on the specified `port` and `addr` (this will timeout if one is not found and then will repeat **1.**)
+2. A connection is established.
+3. A buffer (referred to as `incoming_bytes`) is created for holding bytes read from the socket buffer. A flag to indicate the start of a new message is created (referred to as `read_start`) and is set to **true**. A final buffer stores our recieved `payload`.
+4. Bytes are sent across the socket and placed into a 1MB socket buffer.
+5. Bytes are read from the socket buffer and appended to `incoming_bytes`
+6. If `read_start` is **true** (We are at the start of a new message), extract the header from the start of `incoming_bytes` and continue to **7.** Otherwise we go to **9.**
+7. From our `header` we extract the `msg_size` and time that the message was sent. `read_start` is set to **false**
+8. The `header` is removed from `incoming_bytes`
+9. `incoming_bytes` are appended to `payload`
+10. If the size of our `payload` is larger than our expected `msg_size` we have recieved our whole message. Otherwise we empty `incoming_bytes` and go back to **4.**
+11. `payload` is truncated to our `msg_size`. `incoming_bytes` is emptied and subsequent bytes after `msg_size` in `payload` are placed into `incoming_bytes`
+12. `read_start` is set back to **true** to read the next message. The thread's `on_recv` is called. We go back to **4.**
+
+If at any point a connection becomes unresponsive(times out) or causes a connection error, the thread will return to **1.**
+If this occurs, `on_disconnect` is called.
+
+### SockStreamSend
+
+***NOTE: If `sleep` is set to a low value, the thread may be sending data faster than the recieving socket can cope with. This can lead to degredation in the responsiveness in connections. For now ensure `sleep` is of a sufficient value to avoid this. Ideally, this should be fixed.***
+
+- `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
+- `connected` - A boolean that indicates if a connection is receiving data.
+- `addr` - The **IP Address** that the connection will be bound to.
+- `port` - The port the socket is bound to.
+- `sleep` - The interval in seconds the thread should wait before sending the next message. 
+- `get_data` - A function that can be passed which is used to provide data to send across the socket.
+- `on_disconnect` - A function that can be passed which will be called whenever a socket connection closes.
+
+**Protocol:**
+
+1. Attempt to connect to the specified `port` and `addr` (this will timeout if one is not found and then will repeat **1.**)
+2. A connection is established.
+3. The thread will sleep the amount of time specified by `sleep`.
+4. Data is recieved from `get_data()`. If no data is provided, we return to 3.
+5. Create the payload. This begins with the **header**, consisting of `msg_size` (number of bytes after the header in this message) and the time the message is being sent. The data is converted to bytes and added to the end.
+6. Send the payload across the socket.
+
+If at any point a connection becomes unresponsive(times out) or causes a connection error, the thread will return to **1.**
+If this occurs, `on_disconnect` is called.
+
+### SockSend
+
+This is a function that can be used to send a one-off message to a thread. 
+For this function you can specify the following parameters:
+
+- `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
+- `addr` - The **IP Address** that the connection will be bound to.
+- `port` - The port the socket is bound to.
+- `msg` - Message to send across the socket
+
+It will behave very similarly to SockStreamSend and will ensure the message is sent. **This function is blocking**. Ideally run this function on its own thread.
+
 ## Window Widget
 
-Each window is a frameless, full screen window (1920x1080) that can be moved around to different monitors using the `NavBar` at the top of the screen.
+***NOTE: Current implementation only supports 1920x1080 displays. This needs to be modified.***
+
+Each window is a frameless, full screen window (1920x1080) that can be moved around to different monitors using the `NavBar` at the top of the screen. A window will automatically reposition itself to ensure the entire window is visible. 
 
 The `Window` class is a subclasses of `QFrame`s and is a container for all UI content within a window. 
 The `Window` class should not be used directly but only through the subclasses `Pilot`,`Copilot` and`Grapher`. 
@@ -308,7 +394,7 @@ These should override `attach_data_interface` if a window requires connecting to
 - `reinitalise_cameras()` - Called when the associated `Action` button is pressed. Each `VideoStream` is re-initialised with `start_init_camera_feed()`
 - `check_camera_initialisation_complete()` - Connected to `App`'s `camera_initialisation_complete` signal which is emitted from a `VideoStream` when it successfully initialises. This checks if all `VideoStreams` are finishing trying to initialise so the `Action` button can be unchecked.
 - `set_sonar_value(widget, value, value_max` - Set sonar widgets's text to "<vale> cm". If the value exceeds *value_max* then "<value_max> cm" is displayed instead.
-- `update_stdout()` - Consumes the `lines_to_add` attribute of `DataInterface` and appends it to the stdout UI widget.
+- `update_stdout(source, line)` - Writes a new line to the `stdout_window` and preappends the stdout source of this line.
 - `update_rov_data()` - If the ROV is connected, it will display the latest values stored in `DataInterface`. Otherwise, all ROV attributes will display "ROV Disconnected".
 - `update_float_data()` - If the Float is connected, it will display the latest values stored in `DataInterface`. Otherwise, all Float attributes will display "Float Disconnected."
 - `update_video()` - Called when the `video_stream_update` signal is emmitted. Displays the new frame on the UI for the main camera. Any other camera event is ignored.
