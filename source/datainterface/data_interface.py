@@ -149,8 +149,7 @@ class DataInterface(QObject):
             if self.attitude.z > 4 or self.attitude.z < -5:
                 self.attitude_alert.emit()
                 self.attitude_alert_once = True
-            else:
-                pass
+
         if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
             self.depth_alert.emit()
             self.depth_alert_once = True
