@@ -344,43 +344,43 @@ class Copilot(Window):
 
     # Alert messages, need upgrade
     def alert_attitude(self):
-        QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
         print("Warning!", f"{'Roll is: '}{self.data.attitude.z}")
+        QMessageBox.warning(self, "Warning", f"{'Roll is: '}{self.data.attitude.z}")
         self.attitude_alert_timer = QTimer(self)
         self.attitude_alert_timer.timeout.connect(self.attitude_alert_once_timeout)
         self.attitude_alert_timer.start(20000)
 
     def alert_depth(self):
-        QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
         print("Warning!", f"{'Depth is: '}{self.data.depth}")
+        QMessageBox.warning(self, "Warning", f"{'Depth is: '}{self.data.depth}")
         self.depth_alert_timer = QTimer(self)
         self.depth_alert_timer.timeout.connect(self.depth_alert_once_timeout)
         self.depth_alert_timer.start(20000)
 
     def alert_ambient_pressure(self):
-        QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
         print("Warning!", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
+        QMessageBox.warning(self, "Warning", f"{'Ambient pressure is: '}{self.data.ambient_pressure}")
         self.ambient_pressure_alert_timer = QTimer(self)
         self.ambient_pressure_alert_timer.timeout.connect(self.ambient_pressure_alert_once_timeout)
         self.ambient_pressure_alert_timer.start(20000)
 
     def alert_ambient_temperature(self):
-        QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
         print("Warning!", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
+        QMessageBox.warning(self, "Warning", f"{'Ambient temperature is: '}{self.data.ambient_temperature}")
         self.ambient_temperature_alert_timer = QTimer(self)
         self.ambient_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
         self.ambient_temperature_alert_timer.start(20000)
 
     def alert_internal_temperature(self):
-        QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
         print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
+        QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
         self.internal_temperature_alert_timer = QTimer(self)
         self.internal_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
         self.internal_temperature_alert_timer.start(20000)
 
     def alert_float_depth(self):
-        QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
         print("Warning", f"{'Float depth: '}{self.data.float_depth}")
+        QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
         self.float_depth_alert_timer = QTimer(self)
         self.float_depth_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
         self.float_depth_alert_timer.start(10000)
