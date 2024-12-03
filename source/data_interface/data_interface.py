@@ -85,6 +85,12 @@ class DataInterface(QObject):
         self.overlay_image = cv2.imread("data_interface/test.png", cv2.IMREAD_UNCHANGED)
         self.overlay_image_resized = None
 
+        self.attitude_center_image = cv2.imread("data_interface/attitudeCenter.png", cv2.IMREAD_UNCHANGED)
+        self.attitude_center_image_resized = None
+
+        self.attitude_lines_image = cv2.imread("data_interface/attitudeLines.png", cv2.IMREAD_UNCHANGED)
+        self.attitude_lines_image_resized = None
+
 
         # Start Threads
 
@@ -180,11 +186,28 @@ class DataInterface(QObject):
         if self.overlay_image is None:
             return frame
 
-        if self.overlay_image_resized is None or self.overlay_image_resized.shape[:2] != frame.shape[:2]:
-            self.overlay_image_resized = cv2.resize(self.overlay_image, (frame.shape[1], frame.shape[0]),
+        if self.attitude_center_image_resized is None or self.attitude_center_image_resized.shape[:2] != frame.shape[:2]:
+            self.attitude_center_image_resized = cv2.resize(self.attitude_center_image, (frame.shape[1], frame.shape[0]),
                                                     interpolation=cv2.INTER_AREA)
 
-        overlay_image = self.rotate_overlay(self.overlay_image_resized, self.attitude.y)
+        overlay_image = self.attitude_center_image_resized
+
+        if overlay_image.shape[2] == 4:
+            overlay_color = overlay_image[:, :, :3]
+            alpha_mask = overlay_image[:, :, 3] / 255.0
+
+            alpha_inv = 1.0 - alpha_mask
+            for c in range(0, 3):
+                frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                  alpha_inv * frame[:, :, c])
+        else:
+            frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+
+        if self.attitude_lines_image_resized is None or self.attitude_lines_image_resized.shape[:2] != frame.shape[:2]:
+            self.attitude_lines_image_resized = cv2.resize(self.attitude_lines_image, (frame.shape[1], frame.shape[0]),
+                                                    interpolation=cv2.INTER_AREA)
+
+        overlay_image = self.rotate_overlay(self.attitude_lines_image_resized, 40)
 
         if overlay_image.shape[2] == 4:
             overlay_color = overlay_image[:, :, :3]
