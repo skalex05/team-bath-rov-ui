@@ -311,8 +311,6 @@ class Copilot(Window):
             self.actuator6_value.setText(f"{int(self.data.actuator_6):>3} %")
 
         else:
-            pass
-
             for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
                           self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
                           self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
