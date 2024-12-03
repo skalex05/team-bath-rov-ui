@@ -91,8 +91,8 @@ class Copilot(Window):
         self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
                                                         target=self.connect_float)
 
-        self.reset_alerts_action: QRadioButton = self.findChild(QRadioButton, "ResetAlerts")
-        self.reset_alerts_action_thread = ActionThread(self.reset_alerts_action, self.reset_alerts)
+        self.disable_alerts_action: QRadioButton = self.findChild(QRadioButton, "DisableAlerts")
+        self.disable_alerts_action_thread = ActionThread(self.disable_alerts_action, retain_state=True, target=self.disable_alerts)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
 
@@ -106,6 +106,8 @@ class Copilot(Window):
         self.task_list: QScrollArea = self.findChild(QScrollArea, "TaskList")
         self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
         self.build_task_widgets()
+
+        self.all_alerts_disabled = False
 
     def attach_data_interface(self):
         self.data = self.app.data_interface
@@ -228,17 +230,24 @@ class Copilot(Window):
         time.sleep(1)
         self.reinitialise_cameras_action.setChecked(False)
 
-    def reset_alerts(self):
-        self.data.attitude_alert_once = False
-        self.data.depth_alert_once = False
-        self.data.ambient_temperature_alert_once = False
-        self.data.ambient_pressure_alert_once = False
-        self.data.internal_temperature_alert_once = False
-        self.data.float_depth_alert_once = False
-        # Uncheck button trick
-        self.reset_alerts_action.setAutoExclusive(False)
-        self.reset_alerts_action.setChecked(False)
-        self.reset_alerts_action.setAutoExclusive(True)
+    def disable_alerts(self):
+        if not self.all_alerts_disabled:
+            self.data.attitude_alert_once = True
+            self.data.depth_alert_once = True
+            self.data.ambient_temperature_alert_once = True
+            self.data.ambient_pressure_alert_once = True
+            self.data.internal_temperature_alert_once = True
+            self.data.float_depth_alert_once = True
+            self.all_alerts_disabled = True
+        else:
+            self.data.attitude_alert_once = False
+            self.data.depth_alert_once = False
+            self.data.ambient_temperature_alert_once = False
+            self.data.ambient_pressure_alert_once = False
+            self.data.internal_temperature_alert_once = False
+            self.data.float_depth_alert_once = False
+            self.all_alerts_disabled = False
+            self.all_alerts_disabled = False
 
     def connect_float(self):
         if self.connect_float_action.isChecked():
@@ -375,37 +384,43 @@ class Copilot(Window):
         QMessageBox.critical(self, "Critical", f"{'Internal temperature is: '}{self.data.internal_temperature}")
         print("Critical!", f"{'Internal temperature is: '}{self.data.internal_temperature}")
         self.internal_temperature_alert_timer = QTimer(self)
-        self.internal_temperature_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.internal_temperature_alert_timer.timeout.connect(self.internal_temperature_alert_once_timeout)
         self.internal_temperature_alert_timer.start(20000)
 
     def alert_float_depth(self):
         QMessageBox.warning(self, "Warning", f"{'Float depth: '}{self.data.float_depth}")
         print("Warning", f"{'Float depth: '}{self.data.float_depth}")
         self.float_depth_alert_timer = QTimer(self)
-        self.float_depth_alert_timer.timeout.connect(self.ambient_temperature_alert_once_timeout)
+        self.float_depth_alert_timer.timeout.connect(self.float_depth_alert_once_timeout)
         self.float_depth_alert_timer.start(10000)
 
     def attitude_alert_once_timeout(self):
         self.attitude_alert_timer.stop()
-        self.data.attitude_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.attitude_alert_once = False
 
     def depth_alert_once_timeout(self):
         self.depth_alert_timer.stop()
-        self.data.depth_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.depth_alert_once = False
 
     def ambient_pressure_alert_once_timeout(self):
         self.ambient_pressure_alert_timer.stop()
-        self.data.ambient_pressure_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.ambient_pressure_alert_once = False
 
     def ambient_temperature_alert_once_timeout(self):
         self.ambient_temperature_alert_timer.stop()
-        self.data.ambient_temperature_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.ambient_temperature_alert_once = False
 
     def internal_temperature_alert_once_timeout(self):
         self.internal_temperature_alert_timer.stop()
-        self.data.internal_temperature_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.internal_temperature_alert_once = False
 
     def float_depth_alert_once_timeout(self):
         self.float_depth_alert_timer.stop()
-        self.data.float_depth_alert_once = False
+        if not self.all_alerts_disabled:
+            self.data.float_depth_alert_once = False
 
