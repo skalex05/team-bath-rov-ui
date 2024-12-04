@@ -1,6 +1,7 @@
 import os
 
-from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
+from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame, QWidget, QVBoxLayout
+from PyQt6.QtCore import Qt
 
 from datainterface.data_interface import DataInterface
 from window import Window
@@ -11,7 +12,7 @@ path_dir = os.path.dirname(os.path.realpath(__file__))
 
 class Pilot(Window):
     def __init__(self, *args):
-        super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
+        super().__init__(os.path.join(path_dir, "pilot3.ui"), *args)
 
         self.data: DataInterface | None = None
 
