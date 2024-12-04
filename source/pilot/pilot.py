@@ -86,12 +86,13 @@ class Pilot(Window):
             frame = self.data.camera_feeds[i]
             if frame is not None:
                 rect = cam[1].geometry()
-
                 cam[1].setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
+                cam[1].setAlignment(Qt.AlignmentFlag.AlignCenter)
             else:
                 raise IndexError()
         except IndexError:
             cam[1].setText(f"{cam[0]} Disconnected")
+            cam[1].setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def rpb_sync(self):
         gauge_angle = 330
