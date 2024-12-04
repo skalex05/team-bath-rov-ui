@@ -186,43 +186,41 @@ class DataInterface(QObject):
         return arr
 
     def apply_overlay(self, frame):
-        if self.overlay_image is None:
-            return frame
+        if self.attitude_center_image is not None:
+            if self.attitude_center_image_resized is None or self.attitude_center_image_resized.shape[:2] != frame.shape[:2]:
+                self.attitude_center_image_resized = cv2.resize(self.attitude_center_image, (frame.shape[1], frame.shape[0]),
+                                                        interpolation=cv2.INTER_AREA)
+            overlay_image = self.attitude_center_image_resized
 
-        #center circle
-        if self.attitude_center_image_resized is None or self.attitude_center_image_resized.shape[:2] != frame.shape[:2]:
-            self.attitude_center_image_resized = cv2.resize(self.attitude_center_image, (frame.shape[1], frame.shape[0]),
-                                                    interpolation=cv2.INTER_AREA)
-        overlay_image = self.attitude_center_image_resized
+            if overlay_image.shape[2] == 4:
+                overlay_color = overlay_image[:, :, :3]
+                alpha_mask = overlay_image[:, :, 3] / 255.0
 
-        if overlay_image.shape[2] == 4:
-            overlay_color = overlay_image[:, :, :3]
-            alpha_mask = overlay_image[:, :, 3] / 255.0
+                alpha_inv = 1.0 - alpha_mask
+                for c in range(0, 3):
+                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                    alpha_inv * frame[:, :, c])
+            else:
+                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
 
-            alpha_inv = 1.0 - alpha_mask
-            for c in range(0, 3):
-                frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
-                                  alpha_inv * frame[:, :, c])
-        else:
-            frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
-
+        if self.attitude_lines_image is not None:
         #rotating lines
-        if self.attitude_lines_image_resized is None or self.attitude_lines_image_resized.shape[:2] != frame.shape[:2]:
-            self.attitude_lines_image_resized = cv2.resize(self.attitude_lines_image, (frame.shape[1], frame.shape[0]),
-                                                    interpolation=cv2.INTER_AREA)
+            if self.attitude_lines_image_resized is None or self.attitude_lines_image_resized.shape[:2] != frame.shape[:2]:
+                self.attitude_lines_image_resized = cv2.resize(self.attitude_lines_image, (frame.shape[1], frame.shape[0]),
+                                                        interpolation=cv2.INTER_AREA)
 
-        overlay_image = self.rotate_overlay(self.attitude_lines_image_resized, self.attitude.z)
+            overlay_image = self.rotate_overlay(self.attitude_lines_image_resized, self.attitude.z)
 
-        if overlay_image.shape[2] == 4:
-            overlay_color = overlay_image[:, :, :3]
-            alpha_mask = overlay_image[:, :, 3] / 255.0
+            if overlay_image.shape[2] == 4:
+                overlay_color = overlay_image[:, :, :3]
+                alpha_mask = overlay_image[:, :, 3] / 255.0
 
-            alpha_inv = 1.0 - alpha_mask
-            for c in range(0, 3):
-                frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
-                                  alpha_inv * frame[:, :, c])
-        else:
-            frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+                alpha_inv = 1.0 - alpha_mask
+                for c in range(0, 3):
+                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                    alpha_inv * frame[:, :, c])
+            else:
+                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
 
         frame = self.overlay_pitch_yaw(frame)
         frame = self.overlay_depth(frame)

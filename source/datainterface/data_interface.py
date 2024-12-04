@@ -91,8 +91,13 @@ class DataInterface(QObject):
 
         self.joystick = None
 
-        self.overlay_image = cv2.imread("datainterface/test.png", cv2.IMREAD_UNCHANGED)
-        self.overlay_image_resized = None
+
+        self.attitude_center_image = cv2.imread("datainterface/attitudeCenter.png", cv2.IMREAD_UNCHANGED)
+        self.attitude_center_image_resized = None
+
+        self.attitude_lines_image = cv2.imread("datainterface/attitudeLines.png", cv2.IMREAD_UNCHANGED)
+        self.attitude_lines_image_resized = None
+
 
         # Start Threads
         def on_camera_feed_disconnect(i):
@@ -196,8 +201,9 @@ class DataInterface(QObject):
         if i == 0:
             frame_qimage = self.camera_feeds[i]
             if frame_qimage is not None:
-                frame = self.qimage_to_numpy(frame_qimage)
+                frame = self.qimage_to_numpy(frame_qimage) #This line causes lag
                 frame_with_overlay = self.apply_overlay(frame)
+                # frame_with_overlay = frame
                 frame_qimage = QImage(frame_with_overlay.data, frame_with_overlay.shape[1], frame_with_overlay.shape[0],
                                         frame_with_overlay.strides[0], QImage.Format.Format_BGR888)
                 self.camera_feeds[i] = frame_qimage
@@ -263,26 +269,122 @@ class DataInterface(QObject):
         return arr
     
     def apply_overlay(self, frame):
-        if self.overlay_image is None:
-            return frame
-        if self.overlay_image_resized is None or self.overlay_image_resized.shape[:2] != frame.shape[:2]:
-            self.overlay_image_resized = cv2.resize(self.overlay_image, (frame.shape[1], frame.shape[0]),
-                                                    interpolation=cv2.INTER_AREA)
-        overlay_image = self.rotate_overlay(self.overlay_image_resized, self.attitude.y)
-        if overlay_image.shape[2] == 4:
-            overlay_color = overlay_image[:, :, :3]
-            alpha_mask = overlay_image[:, :, 3] / 255.0
-            alpha_inv = 1.0 - alpha_mask
-            for c in range(0, 3):
-                frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
-                                  alpha_inv * frame[:, :, c])
-        else:
-            frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+        if self.attitude_center_image is not None:
+            if self.attitude_center_image_resized is None or self.attitude_center_image_resized.shape[:2] != frame.shape[:2]:
+                self.attitude_center_image_resized = cv2.resize(self.attitude_center_image, (frame.shape[1], frame.shape[0]),
+                                                        interpolation=cv2.INTER_AREA)
+            overlay_image = self.attitude_center_image_resized
+
+            if overlay_image.shape[2] == 4:
+                overlay_color = overlay_image[:, :, :3]
+                alpha_mask = overlay_image[:, :, 3] / 255.0
+
+                alpha_inv = 1.0 - alpha_mask
+                for c in range(0, 3):
+                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                    alpha_inv * frame[:, :, c])
+            else:
+                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+
+        if self.attitude_lines_image is not None:
+        #rotating lines
+            if self.attitude_lines_image_resized is None or self.attitude_lines_image_resized.shape[:2] != frame.shape[:2]:
+                self.attitude_lines_image_resized = cv2.resize(self.attitude_lines_image, (frame.shape[1], frame.shape[0]),
+                                                        interpolation=cv2.INTER_AREA)
+
+            overlay_image = self.rotate_overlay(self.attitude_lines_image_resized, self.attitude.z)
+
+            if overlay_image.shape[2] == 4:
+                overlay_color = overlay_image[:, :, :3]
+                alpha_mask = overlay_image[:, :, 3] / 255.0
+
+                alpha_inv = 1.0 - alpha_mask
+                for c in range(0, 3):
+                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
+                                    alpha_inv * frame[:, :, c])
+            else:
+                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
+            
+        print(5)
+
+        frame = self.overlay_pitch_yaw(frame)
+        print(6)
+        # frame = self.overlay_depth(frame)
+        print(7)
+
         return frame
+    
+    def overlay_depth(self, frame):
+        depth_value = self.depth 
+        print("a")
+        #text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        text_color = (255, 255, 255) 
+        thickness = 1
+        print("b")
+
+        height, width = frame.shape[:2]
+
+        #Display text
+        depth_text = f"Depth: {depth_value:.2f} m"
+        text_size = cv2.getTextSize(depth_text, font, font_scale, thickness)[0]
+        text_x = width - text_size[0] - 10 
+        text_y = height - 10 
+        cv2.putText(frame, depth_text, (text_x, text_y), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        print("c")
+
+        #Indicator
+        indicator_start = (width - 50, height - 100) 
+        indicator_end = (width - 30, height - 30) 
+        cv2.rectangle(frame, indicator_start, indicator_end, (50, 50, 50), -1)  
+        print("d")
+
+        cv2.putText(frame, f"{self.mindepth:.1f}m", (indicator_start[0] - 40, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{self.maxdepth:.1f}m", (indicator_start[0] - 40, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        print("e")
+
+        # Draw arrow on the indicator 
+        if self.mindepth <= depth_value <= self.maxdepth:
+            normalized_depth = (depth_value - self.mindepth) / (self.maxdepth - self.mindepth)
+            arrow_y = int(indicator_end[1] + (indicator_start[1] - indicator_end[1]) * normalized_depth)
+            arrow_x = indicator_start[0] + 20
+            cv2.arrowedLine(frame, (arrow_x+10, arrow_y), (arrow_x, arrow_y), (255, 255, 255), 2, tipLength=1.2)
+            
+        print("f")
+
+        return frame
+
+    
+
+    def overlay_pitch_yaw(self, frame):
+        pitch_value = self.attitude.x 
+        yaw_value = self.attitude.y   
+
+        # Text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.4
+        color = (255, 255, 255) 
+        thickness = 2
+
+        height, width = frame.shape[:2]
+        center_x = width // 2
+        center_y = height // 2 + 30
+
+        #Off center values
+        pitch_position = (center_x - 70, center_y) 
+        roll_position = (center_x + 40, center_y) 
+
+        cv2.putText(frame, f"{pitch_value:.1f}", pitch_position, font, font_scale, color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{yaw_value:.1f}", roll_position, font, font_scale, color, thickness, cv2.LINE_AA)
+
+        return frame
+    
     
     def rotate_overlay(self, image, angle):
         (h, w) = image.shape[:2]
         center = (w // 2, h // 2)
+
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR,
                                  borderMode=cv2.BORDER_TRANSPARENT)
