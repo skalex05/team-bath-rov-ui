@@ -126,10 +126,8 @@ class NavBar(QWidget):
     def mouseReleaseEvent(self, event):
         chosen_screen = self.app.screens()[0]
         x, y = (event.globalPosition().x(), event.globalPosition().y())
-        print(x,y, "\n")
         for screen in self.app.screens():
             geom = screen.geometry()
-            print(geom)
             if geom.x() <= x <= geom.x()+geom.width() and geom.y() <= y <= geom.y()+geom.height():
                 chosen_screen = screen
                 break
