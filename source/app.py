@@ -1,7 +1,8 @@
 import sys
+
 from threading import ThreadError
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QThread
 
 from copilot.copilot import Copilot
 from datainterface.data_interface import DataInterface
@@ -91,13 +92,18 @@ class App(QApplication):
         windows = [self.copilot_window, self.pilot_window, self.grapher_window]
         # Create the data interface
         # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
+        self.data_interface_thread = QThread()
         self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
+        self.data_interface.moveToThread(self.data_interface_thread)
+        self.data_interface_thread.start()
+
+        # Connect windows to data interface signals
         for window in windows:
             window.attach_data_interface()
 
-        self.data_interface.rov_data_update.emit()
-        for i in range(self.data_interface.camera_feed_count):
-            self.data_interface.video_stream_update.emit(i)
+        # Initially set the rov/float to be disconnected
+        self.data_interface.rov_data_thread.on_disconnect.emit()
+        self.data_interface.float_data_thread.on_disconnect.emit()
 
         dark_theme = """
             Window {
@@ -142,12 +148,14 @@ class App(QApplication):
         print("Closing", file=sys.__stdout__, flush=True)
         # Close dummy processes
         if self.rov_data_source_proc:
+            print("Attempting to close ROV data source", file=sys.__stdout__, flush=True)
             try:
                 self.rov_data_source_proc.terminate()
                 print("Killed ROV data source", file=sys.__stdout__, flush=True)
             except Exception as e:
                 print("Couldn't kill ROV data source - ", e, file=sys.__stdout__, flush=True)
         if self.float_data_source_proc:
+            print("Attempting to close Float data source", file=sys.__stdout__, flush=True)
             try:
                 self.float_data_source_proc.terminate()
                 print("Killed float data source", file=sys.__stdout__, flush=True)

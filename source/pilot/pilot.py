@@ -1,31 +1,50 @@
 import os
 
-from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame, QWidget, QVBoxLayout
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QThread
+from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
 
+from datainterface.video_display import VideoDisplay
 from datainterface.data_interface import DataInterface
 from window import Window
-from datainterface.video_stream import VideoStream
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
+
+
+def update_pixmap(label, pixmap):
+    label.setPixmap(pixmap)
+
+
+def display_disconnect(label, text):
+    label.setText(text)
 
 
 class Pilot(Window):
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "pilot3.ui"), *args)
 
+        self.video_handler_thread = None
         self.data: DataInterface | None = None
 
-        # Cameras
+        # Setup Camera Feeds
+
+        self.cam_displays = []
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
         self.secondary_1_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView1")
         self.secondary_2_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView2")
-        self.cam_info = [
-            ("Main Camera", self.main_cam),
-            ("Secondary Camera 1", self.secondary_1_cam),
-            ("Secondary Camera 2", self.secondary_2_cam),
-        ]
+
+        self.video_handler_thread = QThread()
+        for name, cam in zip(["Main Camera", "Secondary Camera 1", "Secondary Camera 2"],
+                             [self.main_cam, self.secondary_1_cam, self.secondary_2_cam]):
+
+            # Create Video Display and connect to signals
+            display = VideoDisplay(cam)
+            display.pixmap_ready.connect(lambda pixmap, _cam=cam: _cam.setPixmap(pixmap))
+            display.on_disconnect.connect(lambda _cam=cam, _name=name: _cam.setText(f"{_name} Disconnected"))
+
+            # Move video processing to a separate thread
+            display.moveToThread(self.video_handler_thread)
+            self.cam_displays.append(display)
 
         # Tasks
 
@@ -48,13 +67,19 @@ class Pilot(Window):
 
     def attach_data_interface(self):
         self.data = self.app.data_interface
-        self.data.video_stream_update.connect(self.update_video_data)
         self.data.rov_data_update.connect(self.rpb_sync)
         self.data.rov_data_update.connect(self.temp_sync)
+
+        # Attach camera feeds to respective VideoDisplay objects
+        for display, feed in zip(self.cam_displays, self.data.camera_feeds):
+            display.attach_camera_feed(feed)
+
+        self.video_handler_thread.start()
 
     def on_task_change(self):
         # Find out which tasks need to be displayed.
         # Current and next tasks are not necessarily contiguous
+        # Also no guarantee there is a current/next task
         current = None
         up_next = None
 
@@ -69,31 +94,21 @@ class Pilot(Window):
             self.current_title.setText(current.title)
             self.description.setText(current.description)
         else:
-            self.current_title.setText("Complete")
+            # If there's no current task, all tasks are complete
+            self.current_title.setText("All Tasks Complete")
             self.description.setText("Congratulations!")
-            self.up_next_title.setText("Complete")
+            self.up_next_title.setText("")
             self.complete_by_label.setText("")
+        # Display next task if applicable
         if up_next:
             self.up_next_title.setText(up_next.title)
             self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
         else:
-            self.up_next_title.setText("Complete")
+            self.up_next_title.setText("")
             self.complete_by_label.setText("")
 
-    def update_video_data(self, i: int):
-        cam = self.cam_info[i]
-        try:
-            frame = self.data.camera_feeds[i]
-            if frame is not None:
-                rect = cam[1].geometry()
-
-                cam[1].setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
-            else:
-                raise IndexError()
-        except IndexError:
-            cam[1].setText(f"{cam[0]} Disconnected")
-
     def rpb_sync(self):
+        # Gauge angle indicates the angle from 0 to 100%
         gauge_angle = 330
 
         value_kpa = self.data.ambient_pressure
@@ -101,15 +116,17 @@ class Pilot(Window):
             value_perc = 0
             value_kpa = 0
         else:
-            value_perc = (value_kpa-100)/50
-        val1 = (1-value_perc * gauge_angle / 360)
+            value_perc = (value_kpa - 100) / 50
+
+        # Update stylesheet to show the new gauge value
+        val1 = (1 - value_perc * gauge_angle / 360)
         value1 = val1 - 0.001
         self.rpb_path.setStyleSheet(f"""
         #RPB_PATH{{
-            background-color: qconicalgradient(cx:0.5, cy:0.5, angle: {270-(360-gauge_angle)/2}, stop:{val1} rgba(85, 255, 255, 255), stop:{value1} rgba(0, 0, 124, 255));
+            background-color: qconicalgradient(cx:0.5, cy:0.5, angle: {270 - (360 - gauge_angle) / 2}, stop:{val1} rgba(85, 255, 255, 255), stop:{value1} rgba(0, 0, 124, 255));
         }}
         """)
-        self.rpb_perc.setText(f"{round(value_perc*100)}{'%'}")
+        self.rpb_perc.setText(f"{round(value_perc * 100)}{'%'}")
         self.rpb_kpa.setText(f"{round(value_kpa)}{' kPa'}")
 
     def temp_sync(self):

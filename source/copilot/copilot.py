@@ -1,17 +1,15 @@
 import os
 import subprocess
-import time
 
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, \
     QMessageBox
 
-from PyQt6.QtCore import QRect, QTimer
+from PyQt6.QtCore import QRect, QTimer, QThread
 
-from datainterface.data_interface import DataInterface, StdoutType, ROV_IP, FLOAT_IP
-from action_thread import ActionThread
+from datainterface.data_interface import DataInterface, StdoutType, ROV_IP
 from datainterface.action_enum import ActionEnum
 from datainterface.sock_stream_send import SockSend
-from datainterface.video_stream import VideoStream
+from datainterface.video_display import VideoDisplay
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -26,10 +24,11 @@ class Copilot(Window):
 
         # Appearance
 
-        self.v_pad = 5
-        self.v_dp = 2
+        self.v_pad = 5  # Amount of padding in Sensor Data Widget
+        self.v_dp = 2  # Amount of decimal places displayed in numerical text in UI
 
         self.data: DataInterface | None = None
+        self.video_handler_thread = None
 
         # Sensor Data
 
@@ -72,29 +71,30 @@ class Copilot(Window):
         # Actions
 
         self.recalibrate_imu_action: QRadioButton = self.findChild(QRadioButton, "RecalibrateIMUAction")
-        self.recalibrate_imu_action_thread = ActionThread(self.recalibrate_imu_action,
-                                                          self.recalibrate_imu)
+        self.recalibrate_imu_action.clicked.connect(self.recalibrate_imu)
 
         self.rov_power_action: QRadioButton = self.findChild(QRadioButton, "ROVPowerAction")
-        self.rov_power_action_thread = ActionThread(self.rov_power_action, retain_state=True,
-                                                    target=self.on_rov_power)
+        self.rov_power_action.clicked.connect(self.on_rov_power)
 
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
-        self.maintain_depth_action_thread = ActionThread(self.maintain_depth_action, retain_state=True,
-                                                         target=self.maintain_depth)
+        self.maintain_depth_action.clicked.connect(self.maintain_depth)
 
         self.reinitialise_cameras_action: QRadioButton = self.findChild(QRadioButton, "ReinitialiseCameras")
-        self.reinitialise_cameras_action_thread = ActionThread(self.reinitialise_cameras_action, retain_state=True,
-                                                               target=self.reinitialise_cameras)
+        self.reinitialise_cameras_action.clicked.connect(self.reinitialise_cameras)
 
         self.connect_float_action: QRadioButton = self.findChild(QRadioButton, "ConnectFloatAction")
-        self.connect_float_action_thread = ActionThread(self.connect_float_action, retain_state=True,
-                                                        target=self.connect_float)
+        self.connect_float_action.clicked.connect(self.connect_float)
 
         self.disable_alerts_action: QRadioButton = self.findChild(QRadioButton, "DisableAlerts")
-        self.disable_alerts_action_thread = ActionThread(self.disable_alerts_action, retain_state=True, target=self.disable_alerts)
+        self.disable_alerts_action.clicked.connect(self.disable_alerts)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
+        self.main_cam_display = VideoDisplay(self.main_cam)
+        self.main_cam_display.pixmap_ready.connect(lambda pixmap: self.main_cam.setPixmap(pixmap))
+        self.main_cam_display.on_disconnect.connect(lambda: self.main_cam.setText("Main Camera Disconnected"))
+
+        self.video_handler_thread = QThread()
+        self.main_cam_display.moveToThread(self.video_handler_thread)
 
         # Stdout
 
@@ -111,9 +111,15 @@ class Copilot(Window):
 
     def attach_data_interface(self):
         self.data = self.app.data_interface
+
         self.data.rov_data_update.connect(self.update_rov_data)
+        self.data.rov_data_thread.on_disconnect.connect(self.on_rov_disconnect)
+        self.data.rov_data_thread.on_connect.connect(self.on_rov_connect)
+
         self.data.float_data_update.connect(self.update_float_data)
-        self.data.video_stream_update.connect(self.update_video)
+        self.data.float_data_thread.on_disconnect.connect(self.on_float_disconnect)
+        self.data.float_data_thread.on_connect.connect(self.on_float_connect)
+
         self.data.stdout_update.connect(self.update_stdout)
 
         # Alert connect
@@ -124,10 +130,15 @@ class Copilot(Window):
         self.data.internal_temperature_alert.connect(self.alert_internal_temperature)
         self.data.float_depth_alert.connect(self.alert_float_depth)
 
+        self.main_cam_display.attach_camera_feed(self.data.camera_feeds[0])
+
+        self.video_handler_thread.start()
+
     # Timer Functions
 
     @staticmethod
     def secs_to_minsec(secs: int):
+        # Format seconds to minutes and seconds
         mins = secs // 60
         secs = secs % 60
         minsec = f'{mins:02}:{secs:02}'
@@ -181,53 +192,39 @@ class Copilot(Window):
 
     # Action Functions
     def recalibrate_imu(self):
-        print("Recalibrating...")
-        time.sleep(3)
-        print("Recalibrated IMU!")
+        print("RECALIBRATION NOT IMPLEMENTED")
+        self.recalibrate_imu_action.setChecked(False)
 
     def on_rov_power(self):
-        if self.rov_power_action.isChecked():
-            print("Powering On!")
+        if self.app.rov_data_source_proc is None:
             self.rov_power_action.setChecked(False)
             if os.name == "nt":
                 ex = "python.exe"
             else:
                 ex = "python3"
             self.app.rov_data_source_proc = subprocess.Popen([ex, "datainterface//rov_dummy.py"])
-            print("Power On!")
-            self.rov_power_action.setChecked(True)
         else:
-            self.rov_power_action.setChecked(True)
-            print("Powering Off!")
             self.app.rov_data_source_proc.terminate()
             self.app.rov_data_source_proc = None
-            self.rov_power_action.setChecked(False)
-            if self.maintain_depth_action.isChecked():
-                self.maintain_depth_action.setChecked(False)
-                self.maintain_depth()
 
             print("Power Off!")
 
     def maintain_depth(self):
-        depth = self.data.depth
         if self.data.is_rov_connected():
-            SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH,
-                                               self.maintain_depth_action.isChecked(), depth))
-        if self.maintain_depth_action.isChecked() and self.data.is_rov_connected():
-            self.maintain_depth_action.setText(f"Maintaining Depth ({depth} m)")
-            print(f"Maintaining depth of {depth} m")
-        else:
-            self.maintain_depth_action.setText("Maintain Depth")
-            if self.data.is_rov_connected():
-                print("No longer maintaining depth")
-            else:
-                self.maintain_depth_action.setChecked(False)
+            depth = self.data.depth
+            checked = self.maintain_depth_action.isChecked()
+            SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH, checked, depth))
+
+            if checked:
+                self.maintain_depth_action.setText(f"Maintaining Depth ({depth:.{self.v_dp}f} m)")
+                return
+        self.maintain_depth_action.setChecked(False)
+        self.maintain_depth_action.setText("Maintain Depth")
 
     def reinitialise_cameras(self):
         # Check cameras aren't already being initialised
         if self.data.is_rov_connected():
             SockSend(self.app, ROV_IP, 52527, ActionEnum.REINIT_CAMS)
-        time.sleep(1)
         self.reinitialise_cameras_action.setChecked(False)
 
     def disable_alerts(self):
@@ -250,26 +247,21 @@ class Copilot(Window):
             self.all_alerts_disabled = False
 
     def connect_float(self):
-        if self.connect_float_action.isChecked():
+        if self.app.float_data_source_proc is None:
             self.connect_float_action.setChecked(False)
+            self.app.float_data_source_proc = True
             try:
                 self.app.float_data_source_proc = subprocess.Popen(
                     ["python.exe", "datainterface//float_data_source.py"])
             except FileNotFoundError:
                 self.app.float_data_source_proc = subprocess.Popen(["python3", "datainterface//float_data_source.py"])
-            print("Connecting...")
-            time.sleep(2)
             print("Connected!")
-            self.connect_float_action.setChecked(True)
             self.connect_float_action.setText("Disconnect Float")
         else:
             self.connect_float_action.setChecked(True)
-            print("Disconnecting...")
             self.app.float_data_source_proc.terminate()
             self.app.float_data_source_proc = None
-            time.sleep(2)
             print("Disconnected!")
-            self.connect_float_action.setChecked(False)
             self.connect_float_action.setText("Connect Float")
 
     def update_stdout(self, source, line):
@@ -290,66 +282,60 @@ class Copilot(Window):
             self.stdout_window.ensureCursorVisible()
 
     def update_rov_data(self):
-        if self.data.is_rov_connected():
-            t = self.data.attitude
-            self.rov_attitude_value.setText(
-                f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
-            t = self.data.angular_acceleration
-            self.rov_angular_accel_value.setText(
-                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
-            t = self.data.angular_velocity
-            self.rov_angular_velocity_value.setText(
-                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
-            t = self.data.acceleration
-            self.rov_acceleration_value.setText(
-                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
-            t = self.data.velocity
-            self.rov_velocity_value.setText(
-                f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+        t = self.data.attitude
+        self.rov_attitude_value.setText(
+            f"{t.x:<{self.v_pad}.{self.v_dp}f}°, {t.y:<{self.v_pad}.{self.v_dp}f}°, {t.z:<{self.v_pad}.{self.v_dp}f}°")
+        t = self.data.angular_acceleration
+        self.rov_angular_accel_value.setText(
+            f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+        t = self.data.angular_velocity
+        self.rov_angular_velocity_value.setText(
+            f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+        t = self.data.acceleration
+        self.rov_acceleration_value.setText(
+            f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
+        t = self.data.velocity
+        self.rov_velocity_value.setText(
+            f"{t.x:<{self.v_pad}.{self.v_dp}f}, {t.y:<{self.v_pad}.{self.v_dp}f}, {t.z:<{self.v_pad}.{self.v_dp}f} m/s")
 
-            self.rov_depth_value.setText(f"{self.data.depth:<{self.v_pad}.{self.v_dp}f} m")
-            self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature:<{self.v_pad}.{self.v_dp}f}°C")
-            self.ambient_pressure_value.setText(f"{self.data.ambient_pressure:<{self.v_pad}.{self.v_dp}f} KPa")
-            self.internal_temp_value.setText(f"{self.data.internal_temperature:<{self.v_pad}.{self.v_dp}f} °C")
+        self.rov_depth_value.setText(f"{self.data.depth:<{self.v_pad}.{self.v_dp}f} m")
+        self.ambient_water_temp_value.setText(f"{self.data.ambient_temperature:<{self.v_pad}.{self.v_dp}f}°C")
+        self.ambient_pressure_value.setText(f"{self.data.ambient_pressure:<{self.v_pad}.{self.v_dp}f} KPa")
+        self.internal_temp_value.setText(f"{self.data.internal_temperature:<{self.v_pad}.{self.v_dp}f} °C")
 
-            self.actuator1_value.setText(f"{int(self.data.actuator_1):>3} %")
-            self.actuator2_value.setText(f"{int(self.data.actuator_2):>3} %")
-            self.actuator3_value.setText(f"{int(self.data.actuator_3):>3} %")
-            self.actuator4_value.setText(f"{int(self.data.actuator_4):>3} %")
-            self.actuator5_value.setText(f"{int(self.data.actuator_5):>3} %")
-            self.actuator6_value.setText(f"{int(self.data.actuator_6):>3} %")
-
-        else:
-            for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
-                          self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
-                          self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
-                          self.actuator1_value, self.actuator2_value, self.actuator3_value,
-                          self.actuator4_value, self.actuator5_value, self.actuator6_value]:
-                label.setText("ROV Disconnected")
+        self.actuator1_value.setText(f"{int(self.data.actuator_1):>3} %")
+        self.actuator2_value.setText(f"{int(self.data.actuator_2):>3} %")
+        self.actuator3_value.setText(f"{int(self.data.actuator_3):>3} %")
+        self.actuator4_value.setText(f"{int(self.data.actuator_4):>3} %")
+        self.actuator5_value.setText(f"{int(self.data.actuator_5):>3} %")
+        self.actuator6_value.setText(f"{int(self.data.actuator_6):>3} %")
 
         if not self.maintain_depth_action.isChecked():
             self.maintain_depth_action.setText("Maintain Depth")
 
+    def on_rov_connect(self):
+        self.rov_power_action.setChecked(True)
+
+    def on_rov_disconnect(self):
+        self.rov_power_action.setChecked(False)
+        for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
+                      self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
+                      self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
+                      self.actuator1_value, self.actuator2_value, self.actuator3_value,
+                      self.actuator4_value, self.actuator5_value, self.actuator6_value]:
+            label.setText("ROV Disconnected")
+        if self.maintain_depth_action.isChecked():
+            self.maintain_depth_action.setChecked(False)
+
     def update_float_data(self):
-        if self.data.is_float_connected():
-            self.float_depth_value.setText(f"{self.data.float_depth} m")
-        else:
-            self.float_depth_value.setText("Float Disconnected")
+        self.float_depth_value.setText(f"{self.data.float_depth} m")
 
-    def update_video(self, i: int):
-        if i != 0:
-            return
-        try:
-            frame = self.data.camera_feeds[0]
-            if frame:
-                rect = self.main_cam.geometry()
-                self.main_cam.setPixmap(VideoStream.generate_pixmap(frame, rect.width(), rect.height()))
-            else:
-                raise IndexError()
-        except IndexError:
-            self.main_cam.setText("Main Camera Disconnected")
+    def on_float_connect(self):
+        self.connect_float_action.setChecked(True)
 
-        self.update()
+    def on_float_disconnect(self):
+        self.connect_float_action.setChecked(False)
+        self.float_depth_value.setText("Float Disconnected")
 
     # Alert messages, need upgrade
     def alert_attitude(self):
@@ -423,4 +409,3 @@ class Copilot(Window):
         self.float_depth_alert_timer.stop()
         if not self.all_alerts_disabled:
             self.data.float_depth_alert_once = False
-

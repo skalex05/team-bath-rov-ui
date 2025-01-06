@@ -8,6 +8,8 @@ Make comments where neccessary to help produce self documenting code!
 
 Type hints should be used where appropriate. This can greatly help with development and debugging; Tools like IntelliJ can use these for providing more accurate code suggestions.
 
+Ensure any **blocking** operations do not occur on **QT's UI threads** to prevent freezing. Use **threading.Thread** and **QThread** where appropriate.
+
 **Do not** overuse comments/use comments to explain trivial tasks.
 
 
@@ -65,7 +67,6 @@ Other widget objects should contain an attribute referencing to this app object 
 **The app stores information including:**
 
 - Tasks
-- Timer
 - References to each `Window` Widget
 - Reference to the `Dock` Widget
 - Information about processes that send "dummy" data to the UI (Temporary)
@@ -73,12 +74,10 @@ Other widget objects should contain an attribute referencing to this app object 
 **Signals:**
 
 - `task_checked` - Raised when a checkbox in the list of tasks is changed.
-- `camera_initialisation_complete` - Raised when a camera is successfully initialised.
 
 **Methods:**
 
 - `close()` - Closes all windows associated with the application, joins all external threads, closes all associated processes.
-- `init_data_interface(redirect_stdout, redirect_stderr)` - Starts the `DataInterface` object in a new thread and sets a reference in each window to this object, so they can access it.
 - `reset_task_completion()` - Sets all the tasks to incomplete.
 
 ## Task Object
@@ -92,27 +91,45 @@ This object inherits `QWidget` and is used to store information about a particul
 
 ## DataInterface Object
 
-The `DataInterface` is used to store the current state of the ROV/Float, stdout from the UI and from the ROV and ROV video streams.
+The `DataInterface` consists of `SockStreamSend` and `QSockStreamRecv Objects` which are used for the processing of ROV/Float data, video feeds, stdout and controller input.
 
-This object centrally manages multiple threads, which are each responsible of processing data from a socket connection. 
 
 **Attributes:**
 
-There are attributes for the ROV and float. These attribute names should match exactly to those specified by the `ROVData` and `FloatData` classes.
+There are attributes for the ROV and Float. These attribute names should match exactly to those specified by the `ROVData` and `FloatData` classes.
 
+- `app` - `App`
+- `windows` - List[`Window`]
+- `camera_feed_count` - int (3)
+- `redirect_stdout` - io.StringIO
+- `redirect_stderr` - io.StringIO
+- `joystick` - pygame.Joystick
+- `camera_feeds` - List[`VideoFrame`]
+- `camera_threads` - List[`QSockStreamRecv`]
+- `rov_data_thread` - `QSockStreamRecv`
+- `float_data_thread` - `QSockStreamRecv`
+- `stdout_data_thread` - `QSockStreamRecv`
+- `controller_input_thread` - `SockStreamSend`
 
 **Threads:**
 
-Some threads will **emit** a **signal** periodically such as if connection is lost or new data has been receieved.
+Some threads will be of type `QSockStreamRecv` or `SockStreamSend` if they are **constantly** receiving/sending data. 
 
-Some threads will be of type `SockStreamRecv` or `SockStreamSend` if they are **constantly** receiving/sending data.
+These threads will **emit signals** upon **connection**, **disconnection** and when **new data is received**.
 
-- `Video Stream Thread`(s - One for each video stream) - Emits `video_stream_update(int)` -  **Port 52524**/**Port 52523**/**Port 52522** - `SockStreamRecv`
-- `ROV Data Thread` - Emits `rov_data_update` - **Port 52525** - `SockStreamRecv`
-- `ROV Controller Input Thread` - No Emission - **Port 52526** - `SockStreamSend`
-- `Stdout UI Thread` - Emits `stdout_update(StdoutType, str)`
-- `Stdout ROV Thread` - Emits `stdout_update(StdoutType, str)` - `SockStreamRecv`
-- `Float Data Thread` - Emits `float_data_update` - **Port 52625** - `SockStreamRecv`
+These threads will be either UDP (message may not reach destination, lower latency) or TCP (guaranteed message delivery but higher latency)
+
+- `Video Stream Thread`(s - One for each video stream) -  **Port** **52524/52523/52522** - **UDP** - `QSockStreamRecv`
+
+- `ROV Data Thread` **Port 52525** - `QSockStreamRecv`
+
+- `ROV Controller Input Thread` **Port 52526** - `SockStreamSend` - TCP
+
+- `Stdout UI Thread`  - `Thread`
+
+- `Stdout Socket Thread` - **52535** - `QSockStreamRecv` - TCP
+
+- `Float Data Thread` - **Port 52625** - `QSockStreamRecv` - TCP
 
 **Signals:**
 
@@ -120,7 +137,6 @@ These sockets can be connceted to by windows if they are supposed to display inf
 
 - `rov_data_update()`
 - `float_data_update()`
-- `video_stream_update(int)`
 - `stdout_update(StdoutType, str)`
 
 **Methods:**
@@ -128,16 +144,26 @@ These sockets can be connceted to by windows if they are supposed to display inf
 Each Thread has it's own function that it runs which are contained inside this class:
 
 - `is_rov_connected()` - Check if the ROV is connected to the UI.
+
 - `is_float_connected()` - Check if Float is connected to the UI.
+
 - `is_controller_connected()` - Check if a controller is connected to the UI.
+
+- `on_camera_feed_disconnect()` - **Emits** the **new_frame** of the associated `VideoFrame`
+
 - `on_rov_data_sock_recv(payload_bytes)` - Takes in bytes from the `ROV Data Thread` and updates ROV attributes in the `DataInterface`. Emits the `rov_data_update()` signal.
+
 - `on_float_data_sock_recv(payload_bytes)` - Takes in bytes from the `Float Data Thread` and Updates Float attributes in the `DataInterface`. Emits the `float_data_update()` signal.
-- `on_video_stream_sock_recv(payload_bytes, i)`  Takes in bytes from a `Video Stream Thread` for the *i*th camera and updates `DataInterface.camera_feeds[i]` with the newest frame. Emits `video_stream_update(int)`
-- `f_stdout_thread()` - Captures internal UI stdout. Emits the `stdout_update(StdoutType, str)` signal.
-- `on_stdout_sock_recv(payload_bytes)` - Listens for stdout sent across from the ROV. Emits the `stdout_update(StdoutType, str)`
+
+- `on_video_stream_sock_recv(payload_bytes, i)`  Takes in bytes from a `Video Stream Thread` for the *i*th camera and updates `self.camera_feeds[i]` with the newest frame. Emits `new_frame` of the associated `VideoFrame`.
+
+- `f_stdout_ui_thread()` - Captures internal UI stdout. Emits the `stdout_update(StdoutType, str)` signal.
+
+- `on_stdout_sock_recv(payload_bytes)` - Listens for stdout sent across a socket. Emits the `stdout_update(StdoutType, str)`
+
 - `get_controller_input()` - Called by the `ROV Controller Input Thread` and returns controller input. 
 
-- `close()`
+- `close()` - Join all threads to gracefully close the `DataInterface`
 
 ## StdoutTypes
 
@@ -186,96 +212,116 @@ Attribute names in `FloatData` **must match exactly** to a corresponding attibut
 
 ## VideoStream Object
 
-This is used to store information related to the camera feeds on the ROV.
-
-The key argument of this object is the `camera_frame` which stores a 3D **numpy** array of pixels of shape `height,width,channels` of what the video feed is currently receiving.
-This is not to be confused with `camera_feed` which is a `cv2.VideoCapture` object to read frames from. 
-
-The array stored in `camera_frame` is sent across a socket where it is recieved by the `DataInterface` and the UI is updated acordingly.
+This is used to store information related to the camera feeds **on the ROV**. Different processes are used when dealing with video **in the UI**.
 
 **Methods:**
 
 - `start_init_camera_feed()` - This creates a thread which runs `init_camera_feed()`
-- `init_camera_feed()` - This function attempts to read a frame from the `camera_feed`. If it is successful, it will **emit** the `camera_initialised` signal in the `App` object. Otherwise, it will attempt several more times by recursively calling the function until a maximum number of attempts is reached. At which point, the user must press the `Reinitialise Cameras` action to restart this process. 
-- `update_camera_frame()` - The data in `camera_frame` is updated with the newest data read from `camera_feed` *(Note: Testing is needed to see what happens when an initialised camera feed suddenly becomes unavailable. Program should identify and deal with this gracefully beyond just flooding the console with "Could not read...")*
-- `generate_pixmap(camera_frame, target_width, target_height)` - a static method for translating a 3D numpy array `camera_frame` into a `QPixmap` object of a desired size. Aspect ratio of the image is maintained.
+- `init_camera_feed()` - This function attempts to grab a frame from the `camera_feed`. If it is successful, it will start a thread to continuously grab new frames from the `cv2.VideoCapture` object. Otherwise, it will attempt several more times by recursively calling the function until a maximum number of attempts are reached.
+- `get_camera_frame()` - Retrieves, encodes and pickles the most recently grabbed frame so it is ready to be sent to the UI.
 
-## SOCK_STREAM Threads
+## Socket Sending and Recieving
 
-The following two classes provide a robust protocol for sending and receiving various different messages over SOCK_STREAM sockets.
+The following two classes provide robust protocols for sending and receiving various different messages via **TCP** and **UDP**.
 
 ### SockStreamRecv
 
 **Init Parameters:**
 
-- `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
+- `app` - The `App` object if applicable so the thread will close gracefully. `App = None` is allowed but this is blocking.  
 - `connected` - A boolean that indicates if a connection is sending data.
 - `addr` - The **IP Address** that the connection will be bound to.
 - `port` - The port the socket is bound to. 
-- `on_recv` - A function that can be passed which will be called whenever a new message is recieved.
-- `on_disconnect` - A function that can be passed which will be called whenever a socket connection closes.
+- `on_recv` - A required function that is called when a new message is received.
+- `on_connect` - A function that can be passed which is called a socket connection opens.
+- `on_disconnect` - A function that can be passed which is called when a socket connection closes.
+- `buffer_size` - Size of the socket buffer in bytes. **Maximum** Size for **UDP** is **65535** bytes.
+- `timeout` - How long the socket will attempt to perform an operation before timing out.
 
-**Protocol:**
+**TCP Protocol:**
 
 1. Listen for a new connection on the specified `port` and `addr` (this will timeout if one is not found and then will repeat **1.**)
-2. A connection is established.
+2. A connection is established and `on_connect` is called.
 3. A buffer (referred to as `incoming_bytes`) is created for holding bytes read from the socket buffer. A flag to indicate the start of a new message is created (referred to as `read_start`) and is set to **true**. A final buffer stores our recieved `payload`.
-4. Bytes are sent across the socket and placed into a 1MB socket buffer.
+4. Bytes are sent across the socket and placed into our socket buffer.
 5. Bytes are read from the socket buffer and appended to `incoming_bytes`
 6. If `read_start` is **true** (We are at the start of a new message), extract the header from the start of `incoming_bytes` and continue to **7.** Otherwise we go to **9.**
-7. From our `header` we extract the `msg_size` and time that the message was sent. `read_start` is set to **false**
+7. Our `header` contains `Message Size In Bytes`, `Timestamp of Send`, `Send Frequency`.
 8. The `header` is removed from `incoming_bytes`
-9. `incoming_bytes` are appended to `payload`
-10. If the size of our `payload` is larger than our expected `msg_size` we have recieved our whole message. Otherwise we empty `incoming_bytes` and go back to **4.**
+9. `incoming_bytes` are appended to our `payload`.
+10. If the size of our `payload` is larger than our expected `msg_size` we have recieved our whole message (and some of the next message). Otherwise we empty `incoming_bytes` and go back to **4.**
 11. `payload` is truncated to our `msg_size`. `incoming_bytes` is emptied and subsequent bytes after `msg_size` in `payload` are placed into `incoming_bytes`
-12. `read_start` is set back to **true** to read the next message. The thread's `on_recv` is called. We go back to **4.**
+12. `read_start` is set back to **true** to read the next message. The thread's `on_recv` function is called. We go back to **4.**
 
 If at any point a connection becomes unresponsive(times out) or causes a connection error, the thread will return to **1.**
 If this occurs, `on_disconnect` is called.
 
+**UDP Protocol:**
+
+1. Bind to a socket on the specified `port` and `addr`.
+2. Attempt to recieve bytes from the buffer.
+3. If the time since bytes were last recieved exceeds `timeout` period, go back to **1.** and call `on_disconnect` if previosuly connected. Otherwise, if no bytes were recieved go back to **2.**
+4. Bytes have been recieved and are moved from the socket buffer to `payload_bytes`. If not already connected, call `on_connect`
+5. Extract the header from `payload bytes`
+5. The header should consist of `Message Size In Bytes`, `Timestamp of Send`, `Send Frequency`.
+6. Call the `on_recv` function.
+7. If the time since `last_msg` is lower than that needed for `Send Frequency`, sleep until `Send Frequency` is matched in the reciever.
+8. Go back to **2**.
+
 ### SockStreamSend
 
-***NOTE: If `sleep` is set to a low value, the thread may be sending data faster than the recieving socket can cope with. This can lead to degredation in the responsiveness in connections. For now ensure `sleep` is of a sufficient value to avoid this. Ideally, this should be fixed.***
+***NOTE: If `sleep` is set to a low value, the thread may be sending data faster than the recieving socket can cope with. This can lead to degredation in the responsiveness in connections. Consider switching to UDP or sending less frequently*** 
 
 - `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
 - `connected` - A boolean that indicates if a connection is receiving data.
 - `addr` - The **IP Address** that the connection will be bound to.
 - `port` - The port the socket is bound to.
 - `sleep` - The interval in seconds the thread should wait before sending the next message. 
-- `get_data` - A function that can be passed which is used to provide data to send across the socket.
+- `get_data` - A function that can be passed which is used to provide data to send across the socket. This function should return bytes.
+- `on_connect` - A function that can be passed which is called when a socket connection opens. 
 - `on_disconnect` - A function that can be passed which will be called whenever a socket connection closes.
+- `timeout` - How long the socket will attempt to perform an operation before timing out.
 
-**Protocol:**
+**TCP Protocol:**
 
 1. Attempt to connect to the specified `port` and `addr` (this will timeout if one is not found and then will repeat **1.**)
-2. A connection is established.
+2. A connection is established and `on_connect` is called.
 3. The thread will sleep the amount of time specified by `sleep`.
-4. Data is recieved from `get_data()`. If no data is provided, we return to 3.
-5. Create the payload. This begins with the **header**, consisting of `msg_size` (number of bytes after the header in this message) and the time the message is being sent. The data is converted to bytes and added to the end.
+4. Data is recieved from `get_data()`. If no data is provided, we return to **3.**
+5. Create the payload. This begins with the **header**, consisting of `Message Size In Bytes`, `Timestamp of Send`, `Send Frequency`. Data from `get_data()` is appended to the end.
 6. Send the payload across the socket.
 
 If at any point a connection becomes unresponsive(times out) or causes a connection error, the thread will return to **1.**
 If this occurs, `on_disconnect` is called.
 
+**UDP Protocol:**
+
+1. Create a non-blocking socket on the specified `addr` and `port`.
+2. Data is recieved from `get_data()` and is appended behind a **header** consisting of `Message Size In Bytes`, `Timestamp of Send`, `Send Frequency`.
+3. The data is attempted to be sent across the socket.
+4. If successful, `on_connect` is called and the thread sleeps. Go to **2.**
+5. If unsuccessful, `on_disconnect` is called if the thread had been connected. Go to **1.**
+
+
 ### SockSend
 
 This is a function that can be used to send a one-off message to a thread. 
+
+It will behave very similarly to SockStreamSend but for a single message. **This function is blocking**. Ideally run this function on its own thread.
+
 For this function you can specify the following parameters:
 
 - `app` - The UI app object if applicable so the thread will close gracefully. App = None is allowed otherwise but this is blocking.  
 - `addr` - The **IP Address** that the connection will be bound to.
 - `port` - The port the socket is bound to.
 - `msg` - Message to send across the socket
-
-It will behave very similarly to SockStreamSend and will ensure the message is sent. **This function is blocking**. Ideally run this function on its own thread.
+- `max_retries` - Maximum number of times the function will try to send the message before failing. If max_retries is set to a value less than 1, the function will retry perpetually until the message is sent. (**NOTE: This could be dangerous if SockSend is called from a key thread and blocks.**)
 
 ## Window Widget
 
-***NOTE: Current implementation only supports 1920x1080 displays. This needs to be modified.***
+Each window is a frameless, full screen window that can be moved around to different monitors using the `NavBar` at the top of the screen. A window will automatically reposition itself to ensure the entire window is visible. 
 
-Each window is a frameless, full screen window (1920x1080) that can be moved around to different monitors using the `NavBar` at the top of the screen. A window will automatically reposition itself to ensure the entire window is visible. 
-
-The `Window` class is a subclasses of `QFrame`s and is a container for all UI content within a window. 
+The `Window` class is a subclass of `QFrame` and is a container for all UI content within a window. 
 The `Window` class should not be used directly but only through the subclasses `Pilot`,`Copilot` and`Grapher`. 
 Each window should load all static widgets through a `.ui` of the same name. 
 
@@ -308,9 +354,11 @@ When `Window` at the top of the stack changes, the `WindowTitle` propertty of th
 
 **Methods:**
 
+- `is_dockable()` - determines if windows can be docked. This will be true only if the user has multiple monitors connected.
 - `add_windows(*windows)` - adds windows to the stack. Calls `on_dock_change()`
-- `on_dock_change()` - rebuilds the `NavBar` for each `Window` in the stack.
-- `close_event()` - triggered the window is closing. If a window closes, so should the entire app.
+- `on_current_window_change()` - Updates the `Navbar` and `Window` title of the `Window` at the top of the `dock`.
+- `on_dock_change()` - Rebuilds the `NavBar` for each `Window` in the stack.
+- `close_event()` - Triggered when  the window is closing. If a window closes, so should the entire app.
 
 ## NavBar Widget
 
@@ -348,14 +396,6 @@ These should override `attach_data_interface` if a window requires connecting to
 - Critical Alerts
 - A 3D model of the ROV
 - Timer
-
-
-**Signal Connections:**
-
--  `App` `task_checked()` -> `on_task_change()`
-- `DataInterface` `video_stream_update(i)` -> `update_video_data(i)`
-
-
 
 **Methods:**
 
