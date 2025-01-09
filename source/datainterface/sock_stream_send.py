@@ -3,14 +3,22 @@ import struct
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
+from typing import TYPE_CHECKING, Literal, Optional, Any
+from collections.abc import Callable
 
 # HEADER CONTENTS = (Message Size, Time Sent, Send Sleep)
 HEADER_FORMAT = "Qdf"
 
+if TYPE_CHECKING:
+    from app import App
+
 
 # Use to send a continuous stream of data
 class SockStreamSend(threading.Thread):
-    def __init__(self, app, addr, port, sleep, get_data, on_connect=None, on_disconnect=None, protocol="tcp",timeout=0.5):
+    def __init__(self, app: Optional["App"], addr: str, port: int, sleep: float,
+                 get_data: Callable[[], bytes],
+                 on_connect: Callable[[], None] = None, on_disconnect: Callable[[], None] = None,
+                 protocol: Literal["tcp", "udp"] = "tcp", timeout: float = 0.5):
         protocol = protocol.lower()
         if protocol not in ["tcp", "udp"]:
             raise ValueError("SockStream Protocol must either be TCP or UDP")
@@ -26,13 +34,13 @@ class SockStreamSend(threading.Thread):
         self.timeout = timeout
         super().__init__()
 
-    def run(self):
+    def run(self) -> None:
         if self.protocol == "tcp":
             self.run_tcp()
         else:
             self.run_udp()
 
-    def run_udp(self):
+    def run_udp(self) -> None:
         data_client = socket(AF_INET, SOCK_DGRAM)
         data_client.setblocking(False)
         data_client.settimeout(self.timeout)
@@ -70,7 +78,7 @@ class SockStreamSend(threading.Thread):
                 data_client.setblocking(False)
                 data_client.settimeout(self.timeout)
 
-    def run_tcp(self):
+    def run_tcp(self) -> None:
         while self.app is None or not self.app.closing:
             time.sleep(0)  # Relinquish thread from CPU
             # Try and connect to server (Non-blocking)
@@ -112,14 +120,14 @@ class SockStreamSend(threading.Thread):
                 if self.on_disconnect is not None:
                     self.on_disconnect()
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return self.connected
 
 
 # Used to send a single message to a SockStreamRecv
 # Note! This function is blocking! Do not use in main-threads!
 # (Blocking won't be really noticed unless connection to socket fails)
-def SockSend(app, addr, port, msg, max_retries=5):
+def SockSend(app: Optional["App"], addr: str, port: int, msg: Any, max_retries: int = 5) -> None:
     bytes_to_send = pickle.dumps(msg)
     # Attach the header containing the size of payload
     header = struct.pack(HEADER_FORMAT, len(bytes_to_send), time.time(), -1)

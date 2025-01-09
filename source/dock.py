@@ -1,8 +1,10 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from PyQt6.QtWidgets import QStackedWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QScreen
+
+from window import Window
 
 if TYPE_CHECKING:
     from screeninfo import Monitor
@@ -27,26 +29,27 @@ class Dock(QStackedWidget):
         self.currentChanged.connect(self.on_current_window_change)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
-    def is_dockable(self):
+    def is_dockable(self) -> bool:
         return len(self.app.screens()) > 1
 
-    def add_windows(self, *windows):
+    def add_windows(self, *windows: Sequence[Window]) -> None:
         for window in windows:
             self.addWidget(window)
         self.on_dock_change()
 
-    def on_current_window_change(self):
-        self.setWindowTitle(self.currentWidget().windowTitle())
-        self.currentWidget().nav.clear_layout()
-        self.currentWidget().nav.generate_layout()
+    def on_current_window_change(self) -> None:
+        current_window: Window = self.currentWidget()
+        self.setWindowTitle(current_window.windowTitle())
+        current_window.nav.clear_layout()
+        current_window.nav.generate_layout()
 
-    def on_dock_change(self):
+    def on_dock_change(self) -> None:
         for i in range(self.count()):
             # Regenerate the nav bar if a window has been docked/undocked
-            window = self.widget(i)
+            window: Window = self.widget(i)
             window.nav.clear_layout()
             window.nav.generate_layout()
             window.nav.show()
 
-    def closeEvent(self, e):
+    def closeEvent(self, e) -> None:
         self.app.close()
