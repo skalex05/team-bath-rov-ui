@@ -4,11 +4,11 @@ from vector3 import Vector3
 
 
 # Temp function for generating a random float (optionally rounded to 'dp' decimal places)
-def rand_float_range(a: int | float, b: int | float, dp: int = None):
+def rand_float_range(a: int | float, b: int | float, dp: int = None) -> float:
     return round(a + random() * (b - a), dp)
 
 
-def rand_vector3(a: int | float, b: int | float, dp: int = None):
+def rand_vector3(a: int | float, b: int | float, dp: int = None) -> Vector3:
     return Vector3(
         rand_float_range(a, b, dp),
         rand_float_range(a, b, dp),

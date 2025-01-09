@@ -1,6 +1,11 @@
+from typing import Literal, TYPE_CHECKING
+
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
 from datainterface.sock_stream_recv import SockStreamRecv
+
+if TYPE_CHECKING:
+    from app import App
 
 
 # This is a Qt wrapper for SockStreamRecv
@@ -10,7 +15,8 @@ class QSockStreamRecv(QObject):
     on_connect = pyqtSignal()
     on_disconnect = pyqtSignal()
 
-    def __init__(self, app, addr, port, buffer_size=1024, protocol="tcp"):
+    def __init__(self, app: "App", addr: str, port: int, buffer_size: int = 1024,
+                 protocol: Literal["tcp", "udp"] = "tcp"):
         super().__init__()
         self.recv = SockStreamRecv(app, addr, port, self.on_recv.emit, self.on_connect.emit, self.on_disconnect.emit,
                                    buffer_size, protocol)
@@ -24,7 +30,7 @@ class QSockStreamRecv(QObject):
         self.thread_container.start()
 
     # Used to join the receiver to the main thread.
-    def wait(self, timeout=10):
+    def wait(self, timeout: int = 10):
         self.thread_container.wait(timeout)
 
     def is_connected(self):

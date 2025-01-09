@@ -3,14 +3,21 @@ import sys
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, IPPROTO_TCP, TCP_NODELAY, SOCK_DGRAM
 import time
+from typing import TYPE_CHECKING, Callable, Literal
 
 # HEADER CONTENTS = (Message Size, Time Sent, Send Sleep)
 HEADER_FORMAT = "Qdf"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
+if TYPE_CHECKING:
+    from app import App
+
 
 class SockStreamRecv(threading.Thread):
-    def __init__(self, app, addr, port, on_recv, on_connect=None, on_disconnect=None, buffer_size=1024, protocol="tcp", timeout=0.5):
+    def __init__(self, app: "App", addr: str, port: int,
+                 on_recv: Callable, on_connect: Callable = None, on_disconnect: Callable = None,
+                 buffer_size: int = 1024, protocol: Literal["tcp", "udp"] = "tcp", timeout: float = 0.5):
+        print(protocol, file=sys.__stdout__, flush=True)
         protocol = protocol.lower()
         if protocol not in ["tcp", "udp"]:
             raise ValueError("SockStream Protocol must either be TCP or UDP")
@@ -26,7 +33,7 @@ class SockStreamRecv(threading.Thread):
         self.timeout = timeout
         super().__init__()
 
-    def run(self):
+    def run(self) -> None:
         # Run in either with either TCP or UDP protocols
         if self.protocol == "tcp":
             self.run_tcp()
@@ -37,7 +44,7 @@ class SockStreamRecv(threading.Thread):
                 self.buffer_size = 65535
             self.run_udp()
 
-    def run_udp(self):
+    def run_udp(self) -> None:
         data_server = socket(AF_INET, SOCK_DGRAM)
         data_server.bind((self.addr, self.port))
         data_server.setblocking(False)
@@ -82,7 +89,7 @@ class SockStreamRecv(threading.Thread):
             except Exception as e:
                 print(e)
 
-    def run_tcp(self):
+    def run_tcp(self) -> None:
         data_server = socket(AF_INET, SOCK_STREAM)
         data_server.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         data_server.bind((self.addr, self.port))
@@ -139,5 +146,6 @@ class SockStreamRecv(threading.Thread):
                 self.connected = False
                 if self.on_disconnect:
                     self.on_disconnect()
-    def is_connected(self):
+
+    def is_connected(self) -> bool:
         return self.connected

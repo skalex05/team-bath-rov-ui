@@ -1,4 +1,3 @@
-import io
 import pickle
 import sys
 import time
@@ -9,6 +8,7 @@ import cv2
 from qt_sock_stream_recv import QSockStreamRecv
 from sock_stream_send import SockStreamSend
 from typing import TYPE_CHECKING, Sequence
+from io import StringIO
 import pygame
 
 from PyQt6.QtCore import pyqtSignal, QObject, QTimer
@@ -23,6 +23,7 @@ from stdout_type import StdoutType
 if TYPE_CHECKING:
     from window import Window
     from app import App
+    from numpy import ndarray
 
 ROV_IP = "localhost"
 FLOAT_IP = "localhost"
@@ -45,12 +46,11 @@ class DataInterface(QObject):
     internal_temperature_alert = pyqtSignal()
     float_depth_alert = pyqtSignal()
 
-    def __init__(self, app: "App", windows: Sequence["Window"],
-                 redirect_stdout: io.StringIO, redirect_stderr: io.StringIO):
+    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: StringIO, redirect_stderr: StringIO):
         super().__init__()
-        self.app = app
-        self.windows = windows
-        self.camera_feed_count = 3
+        self.app: "App" = app
+        self.windows: Sequence["Window"] = windows
+        self.camera_feed_count: int = 3
 
         # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout
@@ -78,11 +78,11 @@ class DataInterface(QObject):
         self.actuator_6 = 0
 
         # MATE FLOAT Data
-        self.float_depth = 0
+        self.float_depth: float = 0
 
         # Camera Feeds
 
-        self.camera_feeds = []
+        self.camera_feeds: Sequence[VideoFrame] = []
         self.camera_threads: [QSockStreamRecv] = []
 
         # Controller State
@@ -101,7 +101,7 @@ class DataInterface(QObject):
                                          buffer_size=65536,
                                          protocol="udp")
             # Connect signals
-            cam_thread.on_recv.connect(lambda payload_bytes, j=i,: self.on_video_stream_sock_recv(payload_bytes, j))
+            cam_thread.on_recv.connect(lambda payload_bytes, j=i: self.on_video_stream_sock_recv(payload_bytes, j))
             cam_thread.on_disconnect.connect(lambda j=i: self.on_camera_feed_disconnect(j))
             self.camera_threads.append(cam_thread)
             cam_thread.start()
@@ -142,23 +142,22 @@ class DataInterface(QObject):
         self.internal_temperature_alert_once = False
         self.float_depth_alert_once = False
 
-    def on_camera_feed_disconnect(self, i):
-        print("Camera Disconnect")
+    def on_camera_feed_disconnect(self, i) -> None:
         # Wait until the VideoFrame is not being accessed before overwriting the frame
         with self.camera_feeds[i].lock:
             self.camera_feeds[i].frame = None
             self.camera_feeds[i].new_frame.emit()
 
-    def is_rov_connected(self):
+    def is_rov_connected(self) -> bool:
         return self.rov_data_thread.is_connected()
 
-    def is_float_connected(self):
+    def is_float_connected(self) -> bool:
         return self.float_data_thread.is_connected()
 
-    def is_controller_connected(self):
+    def is_controller_connected(self) -> bool:
         return self.get_controller_input() is not None
 
-    def on_rov_data_sock_recv(self, payload_bytes):
+    def on_rov_data_sock_recv(self, payload_bytes) -> None:
         rov_data: ROVData = pickle.loads(payload_bytes)
 
         # Map all attributes in ROVData to their associated attributes in the DataInterface
@@ -188,7 +187,7 @@ class DataInterface(QObject):
 
         self.rov_data_update.emit()
 
-    def on_float_data_sock_recv(self, payload_bytes):
+    def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
         float_data: FloatData = pickle.loads(payload_bytes)
 
         # Map all attributes in ROVData to their associated attributes in the DataInterface
@@ -202,15 +201,15 @@ class DataInterface(QObject):
             self.float_depth_alert_once = True
             self.float_depth_alert.emit()
 
-    def on_video_stream_sock_recv(self, payload, i):
+    def on_video_stream_sock_recv(self, payload: bytes, i: int) -> None:
         # Process the raw video bytes received
-        frame = pickle.loads(payload)
-        if frame is None:
+        encoded: ndarray = pickle.loads(payload)
+        if encoded is None:
             self.on_camera_feed_disconnect(i)
             return
 
         # Decode the frame back into a numpy pixel array
-        frame = cv2.imdecode(frame, 1)
+        frame = cv2.imdecode(encoded, 1)
         h, w, _ = frame.shape
         # Wait until no other threads are accessing the VideoFrame
         with self.camera_feeds[i].lock:
@@ -219,12 +218,13 @@ class DataInterface(QObject):
             self.camera_feeds[i].frame = frame
             self.camera_feeds[i].new_frame.emit()
 
-    def f_stdout_ui_thread(self):
+    def f_stdout_ui_thread(self) -> None:
         while not self.app.closing:
             time.sleep(0)
             # Process redirected stdout
             self.redirect_stdout.flush()
-            for redirect, source, type_ in ((self.redirect_stdout, sys.__stdout__, StdoutType.UI), (self.redirect_stderr, sys.__stderr__, StdoutType.UI_ERROR)):
+            for redirect, source, type_ in ((self.redirect_stdout, sys.__stdout__, StdoutType.UI),
+                                            (self.redirect_stderr, sys.__stderr__, StdoutType.UI_ERROR)):
                 # If stdout has been redirected, send it to redirected and source location
                 if redirect != source:
                     lines = redirect.getvalue().splitlines()
@@ -235,16 +235,17 @@ class DataInterface(QObject):
                     redirect.seek(0)
                     redirect.truncate(0)
 
-    def on_stdout_sock_recv(self, payload_bytes):
+    def on_stdout_sock_recv(self, payload_bytes: bytes) -> None:
         # Receive stdout from socket
         try:
-            source, line = pickle.loads(payload_bytes)
+            msg: tuple[StdoutType, str] = pickle.loads(payload_bytes)
+            source, line = msg
             self.stdout_update.emit(source, line)
             print(f"[{source.name}] {line}", file=sys.__stdout__)
-        except ValueError as e:
+        except ValueError:
             print("Received stdout was not of format <STDOUTTYPE>, <str>", file=sys.stderr)
 
-    def get_controller_input(self):
+    def get_controller_input(self) -> bytes:
         # Process all pygame events since the function was last called
         for event in pygame.event.get():
             # Handle Controller connection and disconnection

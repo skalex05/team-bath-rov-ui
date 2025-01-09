@@ -114,7 +114,7 @@ data_thread.start()
 video_streams = [VideoStream(i) for i in range(3)]
 
 for i in range(3):
-    video_thread = SockStreamSend(None, "localhost", 52524 - i, 0.033,
+    video_thread = SockStreamSend(None, "localhost", 52524 - i, 0.0333,
                                   video_streams[i].get_camera_frame, None, protocol="udp")
     video_thread.start()
 

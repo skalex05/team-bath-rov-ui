@@ -1,33 +1,31 @@
 import os
 
 from PyQt6.QtCore import QThread
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
 
 from datainterface.video_display import VideoDisplay
-from datainterface.data_interface import DataInterface
+from tasks.task import Task
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-def update_pixmap(label, pixmap):
+def update_pixmap(label: QLabel, pixmap: QPixmap) -> None:
     label.setPixmap(pixmap)
 
 
-def display_disconnect(label, text):
+def display_disconnect(label: QLabel, text: str) -> None:
     label.setText(text)
 
 
 class Pilot(Window):
     def __init__(self, *args):
-        super().__init__(os.path.join(path_dir, "pilot3.ui"), *args)
-
-        self.video_handler_thread = None
-        self.data: DataInterface | None = None
+        super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
 
         # Setup Camera Feeds
 
-        self.cam_displays = []
+        self.cam_displays: list[VideoDisplay] = []
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
         self.secondary_1_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView1")
@@ -59,13 +57,13 @@ class Pilot(Window):
         self.rpb_path: QFrame = self.findChild(QFrame, "RPB_PATH")
 
         self.temp_value: QLabel = self.findChild(QLabel, "temp_value")
-        self.progressTempBar = self.findChild(QProgressBar, "temp_bar")
+        self.progressTempBar: QProgressBar = self.findChild(QProgressBar, "temp_bar")
         self.progressTempBar.setMinimum(20)
         self.progressTempBar.setMaximum(30)
 
         self.app.task_checked.connect(self.on_task_change)
 
-    def attach_data_interface(self):
+    def attach_data_interface(self) -> None:
         self.data = self.app.data_interface
         self.data.rov_data_update.connect(self.rpb_sync)
         self.data.rov_data_update.connect(self.temp_sync)
@@ -76,12 +74,12 @@ class Pilot(Window):
 
         self.video_handler_thread.start()
 
-    def on_task_change(self):
+    def on_task_change(self) -> None:
         # Find out which tasks need to be displayed.
         # Current and next tasks are not necessarily contiguous
         # Also no guarantee there is a current/next task
-        current = None
-        up_next = None
+        current: Task | None = None
+        up_next: Task | None = None
 
         for task in self.app.tasks:
             if not task.completed:
@@ -107,7 +105,7 @@ class Pilot(Window):
             self.up_next_title.setText("")
             self.complete_by_label.setText("")
 
-    def rpb_sync(self):
+    def rpb_sync(self) -> None:
         # Gauge angle indicates the angle from 0 to 100%
         gauge_angle = 330
 
@@ -129,7 +127,7 @@ class Pilot(Window):
         self.rpb_perc.setText(f"{round(value_perc * 100)}{'%'}")
         self.rpb_kpa.setText(f"{round(value_kpa)}{' kPa'}")
 
-    def temp_sync(self):
+    def temp_sync(self) -> None:
         value_temp = self.data.ambient_temperature
         self.progressTempBar.setValue(int(value_temp))
         self.temp_value.setText(f"{round(value_temp)}{'°'}")

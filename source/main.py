@@ -6,12 +6,9 @@ from pstats import SortKey, Stats
 from contextlib import redirect_stdout, redirect_stderr
 from app import App
 
-
 faulthandler.enable()
 
 DEBUG = False  # STDOUT will not be displayed in the UI when set to True.
-
-exit_code = None
 
 with Profile() as profile:
     # Catch standard output
