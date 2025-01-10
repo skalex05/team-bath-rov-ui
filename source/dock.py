@@ -4,11 +4,12 @@ from PyQt6.QtWidgets import QStackedWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QScreen
 
-from window import Window
+
 
 if TYPE_CHECKING:
     from screeninfo import Monitor
     from app import App
+    from window import Window
 
 
 class Dock(QStackedWidget):
@@ -32,13 +33,13 @@ class Dock(QStackedWidget):
     def is_dockable(self) -> bool:
         return len(self.app.screens()) > 1
 
-    def add_windows(self, *windows: Sequence[Window]) -> None:
+    def add_windows(self, *windows: Sequence["Window"]) -> None:
         for window in windows:
             self.addWidget(window)
         self.on_dock_change()
 
     def on_current_window_change(self) -> None:
-        current_window: Window = self.currentWidget()
+        current_window: "Window" = self.currentWidget()
         self.setWindowTitle(current_window.windowTitle())
         current_window.nav.clear_layout()
         current_window.nav.generate_layout()
@@ -46,7 +47,7 @@ class Dock(QStackedWidget):
     def on_dock_change(self) -> None:
         for i in range(self.count()):
             # Regenerate the nav bar if a window has been docked/undocked
-            window: Window = self.widget(i)
+            window: "Window" = self.widget(i)
             window.nav.clear_layout()
             window.nav.generate_layout()
             window.nav.show()
