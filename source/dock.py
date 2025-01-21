@@ -7,7 +7,6 @@ from PyQt6.QtGui import QScreen
 
 
 if TYPE_CHECKING:
-    from screeninfo import Monitor
     from app import App
     from window import Window
 

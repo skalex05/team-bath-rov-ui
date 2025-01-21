@@ -10,6 +10,7 @@ from datainterface.data_interface import DataInterface, StdoutType, ROV_IP
 from datainterface.action_enum import ActionEnum
 from datainterface.sock_stream_send import SockSend
 from datainterface.video_display import VideoDisplay
+from tasks.task import Task
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -51,6 +52,14 @@ class Copilot(Window):
         self.actuator6_value: QLabel = self.findChild(QLabel, "Actuator6Value")
 
         self.float_depth_value: QLabel = self.findChild(QLabel, "MATEFloatDepthValue")
+
+        # Tasks
+
+        self.current_title: QLabel = self.findChild(QLabel, "CurrentTitle")
+        self.description: QLabel = self.findChild(QLabel, "Description")
+        self.up_next_title: QLabel = self.findChild(QLabel, "UpNextTitle")
+        self.complete_by_label: QLabel = self.findChild(QLabel, "CompleteBy")
+        self.on_task_change()
 
         # Timer
 
@@ -115,6 +124,39 @@ class Copilot(Window):
         self.build_task_widgets()
 
         self.all_alerts_disabled = False
+
+        self.app.task_checked.connect(self.on_task_change)
+
+    def on_task_change(self) -> None:
+        # Find out which tasks need to be displayed.
+        # Current and next tasks are not necessarily contiguous
+        # Also no guarantee there is a current/next task
+        current: Task | None = None
+        up_next: Task | None = None
+
+        for task in self.app.tasks:
+            if not task.completed:
+                if current is None:
+                    current = task
+                else:
+                    up_next = task
+                    break
+        if current:
+            self.current_title.setText(current.title)
+            self.description.setText(current.description)
+        else:
+            # If there's no current task, all tasks are complete
+            self.current_title.setText("All Tasks Complete")
+            self.description.setText("Congratulations!")
+            self.up_next_title.setText("")
+            self.complete_by_label.setText("")
+        # Display next task if applicable
+        if up_next:
+            self.up_next_title.setText(up_next.title)
+            self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
+        else:
+            self.up_next_title.setText("")
+            self.complete_by_label.setText(f"Complete By: {DURATION_INT//60}:{DURATION_INT%60}")
 
     def attach_data_interface(self) -> None:
         self.data = self.app.data_interface
