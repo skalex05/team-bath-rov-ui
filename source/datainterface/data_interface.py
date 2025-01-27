@@ -1,6 +1,7 @@
 import io
 import pickle
 import sys
+import time
 from threading import Thread
 import cv2
 import numpy as np
@@ -10,8 +11,8 @@ from sock_stream_send import SockStreamSend
 from typing import TYPE_CHECKING, Sequence
 import pygame
 
-from PyQt6.QtCore import pyqtSignal, QObject, QTimer
-from PyQt6.QtGui import QImage
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer, Qt
+from PyQt6.QtGui import QImage, QPainter, QPixmap
 
 from float_data import FloatData
 from rov_data import ROVData
@@ -25,12 +26,7 @@ if TYPE_CHECKING:
 ROV_IP = "localhost"
 FLOAT_IP = "localhost"
 
-
 class DataInterface(QObject):
-    """
-        Stores information about the ROV/Float/Etc.
-        This information is updated concurrently within the program inside this class's 'run' method.
-    """
     rov_data_update = pyqtSignal()
     float_data_update = pyqtSignal()
     video_stream_update = pyqtSignal(int)
@@ -51,13 +47,10 @@ class DataInterface(QObject):
         self.windows = windows
         self.camera_feed_count = 3
 
-        # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
-        # ROV Data
-
-        self.attitude = Vector3(0, 0, 0)  # pitch, yaw, roll
+        self.attitude = Vector3(0, 0, 0)
         self.angular_acceleration = Vector3(0, 0, 0)
         self.angular_velocity = Vector3(0, 0, 0)
         self.acceleration = Vector3(0, 0, 0)
@@ -76,46 +69,41 @@ class DataInterface(QObject):
         self.actuator_5 = 0
         self.actuator_6 = 0
 
-        # MATE FLOAT Data
         self.float_depth = 0
 
-        # Camera Feeds
-
         self.camera_feeds = []
-        self.camera_threads: [Thread] = []
-
-        # Controller State
+        self.camera_threads = []
 
         pygame.init()
         pygame.joystick.init()
-
         self.joystick = None
 
+        self.overlay_enabled = True
+        
+        self.debug_print = True
+        self.debug_angle = 0.0
+        self.last_debug_time = time.time()
 
-        self.attitude_center_image = cv2.imread("datainterface/attitudeCenter.png", cv2.IMREAD_UNCHANGED)
-        self.attitude_center_image_resized = None
+        self.current_frame_size = None
 
-        self.attitude_lines_image = cv2.imread("datainterface/attitudeLines.png", cv2.IMREAD_UNCHANGED)
-        self.attitude_lines_image_resized = None
+        self.attitude_center_pixmap = QPixmap("datainterface/attitudeCenter.png")
+        self.attitude_lines_pixmap = QPixmap("datainterface/attitudeLines.png")
 
-
-        # Start Threads
         def on_camera_feed_disconnect(i):
             self.camera_feeds[i] = None
             self.video_stream_update.emit(i)
 
         for i in range(self.camera_feed_count):
             self.camera_feeds.append(None)
-            cam_thread = SockStreamRecv(self.app, ROV_IP, 52524-i,
-                                        lambda payload_bytes, j=i, : self.on_video_stream_sock_recv(payload_bytes, j),
+            cam_thread = SockStreamRecv(self.app, ROV_IP, 52524 - i,
+                                        lambda payload_bytes, j=i: self.on_video_stream_sock_recv(payload_bytes, j),
                                         lambda j=i: on_camera_feed_disconnect(j))
             self.camera_threads.append(cam_thread)
             cam_thread.start()
 
-        self.rov_data_thread = SockStreamRecv(self.app, ROV_IP, 52525,  self.on_rov_data_sock_recv,
+        self.rov_data_thread = SockStreamRecv(self.app, ROV_IP, 52525, self.on_rov_data_sock_recv,
                                               lambda: self.rov_data_update.emit())
         self.rov_data_thread.start()
-
         self.float_data_thread = SockStreamRecv(self.app, ROV_IP, 52625, self.on_float_data_sock_recv,
                                                 lambda: self.float_data_update.emit())
         self.float_data_thread.start()
@@ -123,14 +111,13 @@ class DataInterface(QObject):
         self.stdout_ui_thread = Thread(target=self.f_stdout_ui_thread)
         self.stdout_ui_thread.start()
 
-        self.stdout_sock_thread = SockStreamRecv(self.app, ROV_IP, 52535,  self.on_stdout_sock_recv, None)
+        self.stdout_sock_thread = SockStreamRecv(self.app, ROV_IP, 52535, self.on_stdout_sock_recv, None)
         self.stdout_sock_thread.start()
 
         self.controller_input_thread = SockStreamSend(self.app, ROV_IP, 52526, 0.01,
                                                       self.get_controller_input, None)
         self.controller_input_thread.start()
 
-        # Alerts that already appeared once
         self.timer = QTimer(self)
         self.attitude_alert_once = False
         self.depth_alert_once = False
@@ -150,30 +137,22 @@ class DataInterface(QObject):
 
     def on_rov_data_sock_recv(self, payload_bytes):
         rov_data: ROVData = pickle.loads(payload_bytes)
-
-        # Map all attributes in ROVData to their associated attributes in the DataInterface
         for attr in rov_data.__dict__:
-            self.__setattr__(attr, rov_data.__getattribute__(attr))
+            setattr(self, attr, getattr(rov_data, attr))
 
         if not self.attitude_alert_once:
             if self.attitude.z > 4 or self.attitude.z < -5:
                 self.attitude_alert.emit()
                 self.attitude_alert_once = True
-            else:
-                pass
         if not self.depth_alert_once and (self.depth > 2.5 or self.depth < 1):
             self.depth_alert.emit()
             self.depth_alert_once = True
-
-        if not self.ambient_temperature_alert_once and (
-                self.ambient_temperature < 24 or self.ambient_temperature > 28):
+        if not self.ambient_temperature_alert_once and (self.ambient_temperature < 24 or self.ambient_temperature > 28):
             self.ambient_temperature_alert.emit()
             self.ambient_temperature_alert_once = True
-
         if not self.ambient_pressure_alert_once and self.ambient_pressure > 129:
             self.ambient_pressure_alert.emit()
             self.ambient_pressure_alert_once = True
-
         if not self.internal_temperature_alert_once and self.internal_temperature > 69:
             self.internal_temperature_alert.emit()
             self.internal_temperature_alert_once = True
@@ -182,34 +161,75 @@ class DataInterface(QObject):
 
     def on_float_data_sock_recv(self, payload_bytes):
         float_data: FloatData = pickle.loads(payload_bytes)
-
-        # Map all attributes in ROVData to their associated attributes in the DataInterface
         for attr in float_data.__dict__:
-            self.__setattr__(attr, float_data.__getattribute__(attr))
-
+            setattr(self, attr, getattr(float_data, attr))
         self.float_data_update.emit()
 
-        # Alert conditional popups
         if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
             self.float_depth_alert.emit()
             self.float_depth_alert_once = True
 
     def on_video_stream_sock_recv(self, payload_bytes, i):
-        frame = pickle.loads(payload_bytes)
-        height, width, channels = frame.shape
-        self.camera_feeds[i] = QImage(frame, width, height, channels * width, QImage.Format.Format_BGR888)
-        if i == 0:
-            frame_qimage = self.camera_feeds[i]
-            if frame_qimage is not None:
-                frame = self.qimage_to_numpy(frame_qimage) #This line causes lag
-                frame_with_overlay = self.apply_overlay(frame)
-                # frame_with_overlay = frame
-                frame_qimage = QImage(frame_with_overlay.data, frame_with_overlay.shape[1], frame_with_overlay.shape[0],
-                                        frame_with_overlay.strides[0], QImage.Format.Format_BGR888)
-                self.camera_feeds[i] = frame_qimage
-        
-        
-        self.video_stream_update.emit(i)
+            if not payload_bytes:
+                return
+
+            frame = pickle.loads(payload_bytes)
+            if frame is None or not isinstance(frame, np.ndarray):
+                return
+
+            start_time = time.time()
+
+            height, width = frame.shape[:2]
+            qimage = QImage(
+                frame.data,
+                width,
+                height,
+                frame.strides[0],
+                QImage.Format.Format_BGR888
+            )
+
+            if i == 0 and self.overlay_enabled:
+                #resize overlays if frame size changed
+                if self.current_frame_size != (width, height):
+                    self.current_frame_size = (width, height)
+                    self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(width, height)
+                    self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(width, height)
+
+                #DEBUG PART
+                if self.debug_print:
+                    current_time = time.time()
+                    elapsed = current_time - self.last_debug_time
+                    self.last_debug_time = current_time
+                    #change angle by 10 degrees per second * elapsed time
+                    self.debug_angle += 10.0 * elapsed
+                    self.debug_angle %= 360.0
+
+                painter = QPainter(qimage)
+
+                painter.drawPixmap(0, 0, self.scaled_center_pixmap)
+
+                painter.save()
+                painter.translate(width/2, height/2)
+
+                #base rotation is self.attitude.z, add debug_angle if debug is on
+                total_rotation = self.attitude.z
+                if self.debug_print:
+                    total_rotation += self.debug_angle
+
+                painter.rotate(total_rotation)
+                painter.translate(-width/2, -height/2)
+                painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
+                painter.restore()
+
+                painter.end()
+
+            self.camera_feeds[i] = qimage
+            self.video_stream_update.emit(i)
+
+            if self.debug_print:
+                total_processing_time = (time.time() - start_time) * 1000.0
+                print(f"[UI] - Total frame processing time: {total_processing_time:.2f} ms")
+
 
     def f_stdout_ui_thread(self):
         while not self.app.closing:
@@ -219,7 +239,6 @@ class DataInterface(QObject):
                 lines = self.redirect_stdout.getvalue().splitlines()
                 for line in lines:
                     self.stdout_update.emit(StdoutType.UI, line)
-                    print(line, file=sys.__stdout__)
                 self.redirect_stdout.seek(0)
                 self.redirect_stdout.truncate(0)
 
@@ -229,7 +248,6 @@ class DataInterface(QObject):
                 lines = self.redirect_stderr.getvalue().splitlines()
                 for line in lines:
                     self.stdout_update.emit(StdoutType.UI_ERROR, line)
-                    print(line, file=sys.__stderr__)
                 self.redirect_stderr.seek(0)
                 self.redirect_stderr.truncate(0)
 
@@ -251,144 +269,11 @@ class DataInterface(QObject):
                 return None
         if self.joystick is None:
             return None
-        new_state = {
+        return {
             "axes": [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())],
             "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
             "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
         }
-        return new_state
-    
-    def qimage_to_numpy(self, qimage):
-        qimage = qimage.convertToFormat(QImage.Format.Format_RGB888)
-        width = qimage.width()
-        height = qimage.height()
-        ptr = qimage.bits()
-        ptr.setsize(qimage.sizeInBytes())
-        arr = np.array(ptr).reshape(height, width, 3)
-        arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
-        return arr
-    
-    def apply_overlay(self, frame):
-        if self.attitude_center_image is not None:
-            if self.attitude_center_image_resized is None or self.attitude_center_image_resized.shape[:2] != frame.shape[:2]:
-                self.attitude_center_image_resized = cv2.resize(self.attitude_center_image, (frame.shape[1], frame.shape[0]),
-                                                        interpolation=cv2.INTER_AREA)
-            overlay_image = self.attitude_center_image_resized
-
-            if overlay_image.shape[2] == 4:
-                overlay_color = overlay_image[:, :, :3]
-                alpha_mask = overlay_image[:, :, 3] / 255.0
-
-                alpha_inv = 1.0 - alpha_mask
-                for c in range(0, 3):
-                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
-                                    alpha_inv * frame[:, :, c])
-            else:
-                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
-
-        if self.attitude_lines_image is not None:
-        #rotating lines
-            if self.attitude_lines_image_resized is None or self.attitude_lines_image_resized.shape[:2] != frame.shape[:2]:
-                self.attitude_lines_image_resized = cv2.resize(self.attitude_lines_image, (frame.shape[1], frame.shape[0]),
-                                                        interpolation=cv2.INTER_AREA)
-
-            overlay_image = self.rotate_overlay(self.attitude_lines_image_resized, self.attitude.z)
-
-            if overlay_image.shape[2] == 4:
-                overlay_color = overlay_image[:, :, :3]
-                alpha_mask = overlay_image[:, :, 3] / 255.0
-
-                alpha_inv = 1.0 - alpha_mask
-                for c in range(0, 3):
-                    frame[:, :, c] = (alpha_mask * overlay_color[:, :, c] +
-                                    alpha_inv * frame[:, :, c])
-            else:
-                frame = cv2.addWeighted(overlay_image, 1.0, frame, 1.0, 0)
-            
-        print(5)
-
-        frame = self.overlay_pitch_yaw(frame)
-        print(6)
-        # frame = self.overlay_depth(frame)
-        print(7)
-
-        return frame
-    
-    def overlay_depth(self, frame):
-        depth_value = self.depth 
-        print("a")
-        #text
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        text_color = (255, 255, 255) 
-        thickness = 1
-        print("b")
-
-        height, width = frame.shape[:2]
-
-        #Display text
-        depth_text = f"Depth: {depth_value:.2f} m"
-        text_size = cv2.getTextSize(depth_text, font, font_scale, thickness)[0]
-        text_x = width - text_size[0] - 10 
-        text_y = height - 10 
-        cv2.putText(frame, depth_text, (text_x, text_y), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        print("c")
-
-        #Indicator
-        indicator_start = (width - 50, height - 100) 
-        indicator_end = (width - 30, height - 30) 
-        cv2.rectangle(frame, indicator_start, indicator_end, (50, 50, 50), -1)  
-        print("d")
-
-        cv2.putText(frame, f"{self.mindepth:.1f}m", (indicator_start[0] - 40, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{self.maxdepth:.1f}m", (indicator_start[0] - 40, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        print("e")
-
-        # Draw arrow on the indicator 
-        if self.mindepth <= depth_value <= self.maxdepth:
-            normalized_depth = (depth_value - self.mindepth) / (self.maxdepth - self.mindepth)
-            arrow_y = int(indicator_end[1] + (indicator_start[1] - indicator_end[1]) * normalized_depth)
-            arrow_x = indicator_start[0] + 20
-            cv2.arrowedLine(frame, (arrow_x+10, arrow_y), (arrow_x, arrow_y), (255, 255, 255), 2, tipLength=1.2)
-            
-        print("f")
-
-        return frame
-
-    
-
-    def overlay_pitch_yaw(self, frame):
-        pitch_value = self.attitude.x 
-        yaw_value = self.attitude.y   
-
-        # Text
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.4
-        color = (255, 255, 255) 
-        thickness = 2
-
-        height, width = frame.shape[:2]
-        center_x = width // 2
-        center_y = height // 2 + 30
-
-        #Off center values
-        pitch_position = (center_x - 70, center_y) 
-        roll_position = (center_x + 40, center_y) 
-
-        cv2.putText(frame, f"{pitch_value:.1f}", pitch_position, font, font_scale, color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{yaw_value:.1f}", roll_position, font, font_scale, color, thickness, cv2.LINE_AA)
-
-        return frame
-    
-    
-    def rotate_overlay(self, image, angle):
-        (h, w) = image.shape[:2]
-        center = (w // 2, h // 2)
-
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR,
-                                 borderMode=cv2.BORDER_TRANSPARENT)
-        return rotated
 
     def close(self):
         pygame.quit()
