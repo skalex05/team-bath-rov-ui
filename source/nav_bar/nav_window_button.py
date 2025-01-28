@@ -2,10 +2,9 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QPushButton
 
-
 if TYPE_CHECKING:
     from nav_bar.nav_bar import NavBar
-    from source.window import Window
+    from window import Window
 
 
 class NavWindowButton(QPushButton):
@@ -18,6 +17,6 @@ class NavWindowButton(QPushButton):
         self.nav_bar = nav_bar
         self.setStyleSheet("""background-color:rgb(50,50,50); color: white;""")
 
-    def on_click(self):
+    def on_click(self) -> None:
         # Change currently visible window
         self.nav_bar.dock.setCurrentWidget(self.assoc_window)
