@@ -2,6 +2,8 @@ import pickle
 import sys
 import time
 from threading import Thread
+import cv2
+import numpy as np
 
 import cv2
 
@@ -11,8 +13,8 @@ from typing import TYPE_CHECKING, Sequence
 from io import StringIO
 import pygame
 
-from PyQt6.QtCore import pyqtSignal, QObject, QTimer
-from PyQt6.QtGui import QImage
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer, Qt
+from PyQt6.QtGui import QImage, QPainter, QPixmap
 
 from float_data import FloatData
 from rov_data import ROVData
@@ -28,12 +30,7 @@ if TYPE_CHECKING:
 ROV_IP = "localhost"
 FLOAT_IP = "localhost"
 
-
 class DataInterface(QObject):
-    """
-        Stores information about the ROV/Float/Etc.
-        This information is updated concurrently within the program inside this class's 'run' method.
-    """
     rov_data_update = pyqtSignal()
     float_data_update = pyqtSignal()
     stdout_update = pyqtSignal(StdoutType, str)
@@ -52,13 +49,10 @@ class DataInterface(QObject):
         self.windows: Sequence["Window"] = windows
         self.camera_feed_count: int = 3
 
-        # This is where anything printed to the screen will be redirected to, so it can be copied into the UI
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
-        # ROV Data
-
-        self.attitude = Vector3(0, 0, 0)  # pitch, yaw, roll
+        self.attitude = Vector3(0, 0, 0)
         self.angular_acceleration = Vector3(0, 0, 0)
         self.angular_velocity = Vector3(0, 0, 0)
         self.acceleration = Vector3(0, 0, 0)
@@ -89,10 +83,22 @@ class DataInterface(QObject):
 
         pygame.init()
         pygame.joystick.init()
-
         self.joystick = None
 
-        # Start Threads
+        self.overlay_enabled = True
+        
+        self.debug_print = True
+        self.debug_angle = 0.0
+        self.last_debug_time = time.time()
+
+        self.current_frame_size = None
+
+        self.attitude_center_pixmap = QPixmap("datainterface/attitudeCenter.png")
+        self.attitude_lines_pixmap = QPixmap("datainterface/attitudeLines.png")
+
+        def on_camera_feed_disconnect(i):
+            self.camera_feeds[i] = None
+            self.video_stream_update.emit(i)
 
         # Video Receiver Threads
         for i in range(self.camera_feed_count):
@@ -133,7 +139,6 @@ class DataInterface(QObject):
                                                       self.get_controller_input)
         self.controller_input_thread.start()
 
-        # Alerts that already appeared once
         self.timer = QTimer(self)
         self.attitude_alert_once = False
         self.depth_alert_once = False
@@ -159,10 +164,8 @@ class DataInterface(QObject):
 
     def on_rov_data_sock_recv(self, payload_bytes) -> None:
         rov_data: ROVData = pickle.loads(payload_bytes)
-
-        # Map all attributes in ROVData to their associated attributes in the DataInterface
         for attr in rov_data.__dict__:
-            self.__setattr__(attr, rov_data.__getattribute__(attr))
+            setattr(self, attr, getattr(rov_data, attr))
 
         if not self.attitude_alert_once and (self.attitude.z > 4 or self.attitude.z < -5):
             self.attitude_alert_once = True
@@ -186,20 +189,77 @@ class DataInterface(QObject):
             self.internal_temperature_alert.emit()
 
         self.rov_data_update.emit()
+# OLD VERSION, CAN BE REMOVED ONCE FINALISED
+    # def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
+    #     float_data: FloatData = pickle.loads(payload_bytes)
+    #     for attr in float_data.__dict__:
+    #         setattr(self, attr, getattr(float_data, attr))
+    #     self.float_data_update.emit()
 
-    def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
-        float_data: FloatData = pickle.loads(payload_bytes)
+    #     if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
+    #         self.float_depth_alert_once = True
+    #         self.float_depth_alert.emit()
 
-        # Map all attributes in ROVData to their associated attributes in the DataInterface
-        for attr in float_data.__dict__:
-            self.__setattr__(attr, float_data.__getattribute__(attr))
+    # def on_video_stream_sock_recv(self, payload_bytes, i):
+    #         if not payload_bytes:
+    #             return
 
-        self.float_data_update.emit()
+    #         frame = pickle.loads(payload_bytes)
+    #         if frame is None or not isinstance(frame, np.ndarray):
+    #             return
 
-        # Alert conditional popups
-        if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
-            self.float_depth_alert_once = True
-            self.float_depth_alert.emit()
+    #         start_time = time.time()
+
+    #         height, width = frame.shape[:2]
+    #         qimage = QImage(
+    #             frame.data,
+    #             width,
+    #             height,
+    #             frame.strides[0],
+    #             QImage.Format.Format_BGR888
+    #         )
+
+    #         if i == 0 and self.overlay_enabled:
+    #             #resize overlays if frame size changed
+    #             if self.current_frame_size != (width, height):
+    #                 self.current_frame_size = (width, height)
+    #                 self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(width, height)
+    #                 self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(width, height)
+
+    #             #DEBUG PART
+    #             if self.debug_print:
+    #                 current_time = time.time()
+    #                 elapsed = current_time - self.last_debug_time
+    #                 self.last_debug_time = current_time
+    #                 #change angle by 10 degrees per second * elapsed time
+    #                 self.debug_angle += 10.0 * elapsed
+    #                 self.debug_angle %= 360.0
+
+    #             painter = QPainter(qimage)
+
+    #             painter.drawPixmap(0, 0, self.scaled_center_pixmap)
+
+    #             painter.save()
+    #             painter.translate(width/2, height/2)
+
+    #             #base rotation is self.attitude.z, add debug_angle if debug is on
+    #             total_rotation = self.attitude.z
+    #             if self.debug_print:
+    #                 total_rotation += self.debug_angle
+
+    #             painter.rotate(total_rotation)
+    #             painter.translate(-width/2, -height/2)
+    #             painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
+    #             painter.restore()
+
+    #             painter.end()
+
+    #         self.camera_feeds[i] = qimage
+    #         self.video_stream_update.emit(i)
+
+    #         if self.debug_print:
+    #             total_processing_time = (time.time() - start_time) * 1000.0
+    #             print(f"[UI] - Total frame processing time: {total_processing_time:.2f} ms")
 
     def on_video_stream_sock_recv(self, payload: bytes, i: int) -> None:
         # Process the raw video bytes received
@@ -215,6 +275,41 @@ class DataInterface(QObject):
         with self.camera_feeds[i].lock:
             # Generate the new QImage for the feed
             frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
+            if i == 0 and self.overlay_enabled:
+                #resize overlays if frame size changed
+                if self.current_frame_size != (w, h):
+                    self.current_frame_size = (w, h)
+                    self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(w, h)
+                    self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(w, h)
+
+                #DEBUG PART
+                if self.debug_print:
+                    current_time = time.time()
+                    elapsed = current_time - self.last_debug_time
+                    self.last_debug_time = current_time
+                    #change angle by 10 degrees per second * elapsed time
+                    self.debug_angle += 10.0 * elapsed
+                    self.debug_angle %= 360.0
+
+                painter = QPainter(frame)
+
+                painter.drawPixmap(0, 0, self.scaled_center_pixmap)
+
+                painter.save()
+                painter.translate(w/2, h/2)
+
+                #base rotation is self.attitude.z, add debug_angle if debug is on
+                total_rotation = self.attitude.z
+                if self.debug_print:
+                    total_rotation += self.debug_angle
+
+                painter.rotate(total_rotation)
+                painter.translate(-w/2, -h/2)
+                painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
+                painter.restore()
+
+                painter.end()
+                
             self.camera_feeds[i].frame = frame
             self.camera_feeds[i].new_frame.emit()
 
