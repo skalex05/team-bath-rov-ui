@@ -1,3 +1,4 @@
+import math
 import pickle
 import sys
 import time
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 
 ROV_IP = "localhost"
 FLOAT_IP = "localhost"
+
 
 class DataInterface(QObject):
     rov_data_update = pyqtSignal()
@@ -86,14 +88,11 @@ class DataInterface(QObject):
         self.joystick = None
 
         self.overlay_enabled = True
-        
         self.debug_print = False
         self.debug_angle = 0.0
         self.last_debug_time = time.time()
         self.min_depth = 0.0
         self.max_depth = 5.0
-
-        self.current_frame_size = None
 
         self.attitude_center_pixmap = QPixmap("datainterface/attitudeCenter.png")
         self.attitude_lines_pixmap = QPixmap("datainterface/attitudeLines.png")
@@ -202,7 +201,6 @@ class DataInterface(QObject):
             self.float_depth_alert_once = True
             self.float_depth_alert.emit()
 
-
     def on_video_stream_sock_recv(self, payload: bytes, i: int) -> None:
         # Process the raw video bytes received
         encoded: ndarray = pickle.loads(payload)
@@ -216,44 +214,33 @@ class DataInterface(QObject):
         frame = self.overlay_depth(frame)
         h, w, _ = frame.shape
         # Wait until no other threads are accessing the VideoFrame
+
+        # Generate the new QImage for the feed
+        frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
+        if i == 0 and self.overlay_enabled:
+            # resize overlays if frame size changed
+
+            scaled_center_pixmap = self.attitude_center_pixmap.scaled(w, h)
+            scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(w, h)
+
+            painter = QPainter(frame)
+
+            painter.drawPixmap(0, 0, scaled_center_pixmap)
+
+            painter.save()
+            painter.translate(w / 2, h / 2)
+
+            # base rotation is self.attitude.z, add debug_angle if debug is on
+            total_rotation = self.attitude.z
+
+            painter.rotate(total_rotation)
+            painter.translate(-w / 2, -h / 2)
+            painter.drawPixmap(0, 0, scaled_lines_pixmap)
+            painter.restore()
+
+            painter.end()
+
         with self.camera_feeds[i].lock:
-            # Generate the new QImage for the feed
-            frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
-            if i == 0 and self.overlay_enabled:
-                #resize overlays if frame size changed
-                if self.current_frame_size != (w, h):
-                    self.current_frame_size = (w, h)
-                    self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(w, h)
-                    self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(w, h)
-
-                #DEBUG PART
-                if self.debug_print:
-                    current_time = time.time()
-                    elapsed = current_time - self.last_debug_time
-                    self.last_debug_time = current_time
-                    #change angle by 10 degrees per second * elapsed time
-                    self.debug_angle += 10.0 * elapsed
-                    self.debug_angle %= 360.0
-
-                painter = QPainter(frame)
-
-                painter.drawPixmap(0, 0, self.scaled_center_pixmap)
-
-                painter.save()
-                painter.translate(w/2, h/2)
-
-                #base rotation is self.attitude.z, add debug_angle if debug is on
-                total_rotation = self.attitude.z
-                if self.debug_print:
-                    total_rotation += self.debug_angle
-
-                painter.rotate(total_rotation)
-                painter.translate(-w/2, -h/2)
-                painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
-                painter.restore()
-
-                painter.end()
-                
             self.camera_feeds[i].frame = frame
             self.camera_feeds[i].new_frame.emit()
 
