@@ -87,9 +87,11 @@ class DataInterface(QObject):
 
         self.overlay_enabled = True
         
-        self.debug_print = True
+        self.debug_print = False
         self.debug_angle = 0.0
         self.last_debug_time = time.time()
+        self.min_depth = 0.0
+        self.max_depth = 5.0
 
         self.current_frame_size = None
 
@@ -210,6 +212,8 @@ class DataInterface(QObject):
 
         # Decode the frame back into a numpy pixel array
         frame = cv2.imdecode(encoded, 1)
+        frame = self.overlay_pitch_yaw(frame)
+        frame = self.overlay_depth(frame)
         h, w, _ = frame.shape
         # Wait until no other threads are accessing the VideoFrame
         with self.camera_feeds[i].lock:
@@ -320,3 +324,55 @@ class DataInterface(QObject):
         for video_stream_thread in self.camera_threads:
             video_stream_thread.wait(10)
         print("Data Interface closed successfully", file=sys.__stdout__, flush=True)
+
+    def overlay_depth(self, frame):
+        depth_value = self.depth 
+        print("a")
+        #text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        text_color = (255, 255, 255) 
+        thickness = 1
+        print("b")
+        height, width = frame.shape[:2]
+        #Display text
+        depth_text = f"Depth: {depth_value:.2f} m"
+        text_size = cv2.getTextSize(depth_text, font, font_scale, thickness)[0]
+        text_x = width - text_size[0] - 10 
+        text_y = height - 10 
+        cv2.putText(frame, depth_text, (text_x, text_y), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        print("c")
+        #Indicator
+        indicator_start = (width - 100, height - 100) 
+        indicator_end = (width - 100, height - 30) 
+        cv2.rectangle(frame, indicator_start, indicator_end, (50, 50, 50), 25)  
+        cv2.putText(frame, f"{self.min_depth:.1f}m", (indicator_start[0] - 30, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{self.max_depth:.1f}m", (indicator_start[0] - 30, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        print("e")
+        # # Draw arrow on the indicator 
+        if self.min_depth <= depth_value <= self.max_depth:
+            normalized_depth = (depth_value - self.min_depth) / (self.max_depth - self.min_depth)
+            arrow_y = int(indicator_end[1] + (indicator_start[1] - indicator_end[1]) * normalized_depth)
+            arrow_x = indicator_start[0] + 20
+            cv2.arrowedLine(frame, (arrow_x+10, arrow_y), (arrow_x, arrow_y), (255, 255, 255), 2, tipLength=1.2)
+            
+        print("f")
+        return frame
+    
+    def overlay_pitch_yaw(self, frame):
+        pitch_value = self.attitude.x 
+        yaw_value = self.attitude.y   
+        # Text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.4
+        color = (255, 255, 255) 
+        thickness = 2
+        height, width = frame.shape[:2]
+        center_x = width // 2
+        center_y = height // 2 + 30
+        #Off center values
+        pitch_position = (center_x - 70, center_y) 
+        roll_position = (center_x + 40, center_y) 
+        cv2.putText(frame, f"{pitch_value:.1f}", pitch_position, font, font_scale, color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{yaw_value:.1f}", roll_position, font, font_scale, color, thickness, cv2.LINE_AA)
+        return frame
