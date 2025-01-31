@@ -189,77 +189,17 @@ class DataInterface(QObject):
             self.internal_temperature_alert.emit()
 
         self.rov_data_update.emit()
-# OLD VERSION, CAN BE REMOVED ONCE FINALISED
-    # def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
-    #     float_data: FloatData = pickle.loads(payload_bytes)
-    #     for attr in float_data.__dict__:
-    #         setattr(self, attr, getattr(float_data, attr))
-    #     self.float_data_update.emit()
+        
+    def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
+        float_data: FloatData = pickle.loads(payload_bytes)
+        for attr in float_data.__dict__:
+            setattr(self, attr, getattr(float_data, attr))
+        self.float_data_update.emit()
 
-    #     if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
-    #         self.float_depth_alert_once = True
-    #         self.float_depth_alert.emit()
+        if not self.float_depth_alert_once and (self.float_depth > 3 or self.float_depth < 1):
+            self.float_depth_alert_once = True
+            self.float_depth_alert.emit()
 
-    # def on_video_stream_sock_recv(self, payload_bytes, i):
-    #         if not payload_bytes:
-    #             return
-
-    #         frame = pickle.loads(payload_bytes)
-    #         if frame is None or not isinstance(frame, np.ndarray):
-    #             return
-
-    #         start_time = time.time()
-
-    #         height, width = frame.shape[:2]
-    #         qimage = QImage(
-    #             frame.data,
-    #             width,
-    #             height,
-    #             frame.strides[0],
-    #             QImage.Format.Format_BGR888
-    #         )
-
-    #         if i == 0 and self.overlay_enabled:
-    #             #resize overlays if frame size changed
-    #             if self.current_frame_size != (width, height):
-    #                 self.current_frame_size = (width, height)
-    #                 self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(width, height)
-    #                 self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(width, height)
-
-    #             #DEBUG PART
-    #             if self.debug_print:
-    #                 current_time = time.time()
-    #                 elapsed = current_time - self.last_debug_time
-    #                 self.last_debug_time = current_time
-    #                 #change angle by 10 degrees per second * elapsed time
-    #                 self.debug_angle += 10.0 * elapsed
-    #                 self.debug_angle %= 360.0
-
-    #             painter = QPainter(qimage)
-
-    #             painter.drawPixmap(0, 0, self.scaled_center_pixmap)
-
-    #             painter.save()
-    #             painter.translate(width/2, height/2)
-
-    #             #base rotation is self.attitude.z, add debug_angle if debug is on
-    #             total_rotation = self.attitude.z
-    #             if self.debug_print:
-    #                 total_rotation += self.debug_angle
-
-    #             painter.rotate(total_rotation)
-    #             painter.translate(-width/2, -height/2)
-    #             painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
-    #             painter.restore()
-
-    #             painter.end()
-
-    #         self.camera_feeds[i] = qimage
-    #         self.video_stream_update.emit(i)
-
-    #         if self.debug_print:
-    #             total_processing_time = (time.time() - start_time) * 1000.0
-    #             print(f"[UI] - Total frame processing time: {total_processing_time:.2f} ms")
 
     def on_video_stream_sock_recv(self, payload: bytes, i: int) -> None:
         # Process the raw video bytes received
