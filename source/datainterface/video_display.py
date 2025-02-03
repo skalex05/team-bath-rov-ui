@@ -38,7 +38,8 @@ class VideoDisplay(QObject):
                 rect = self.label.geometry()
                 pixmap = QPixmap(frame.copy())
                 # Ensure image fits available space as best as possible.
-                if rect.width() < rect.height():
+
+                if pixmap.width() < pixmap.height():
                     pixmap = pixmap.scaledToWidth(rect.width())
                 else:
                     pixmap = pixmap.scaledToHeight(rect.height())
