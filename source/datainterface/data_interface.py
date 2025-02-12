@@ -368,6 +368,8 @@ class DataInterface(QObject):
         cv2.rectangle(frame, indicator_start, indicator_end, (50, 50, 50), 25)  
         cv2.putText(frame, f"{self.min_depth:.1f}m", (indicator_start[0] - 60, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
         cv2.putText(frame, f"{self.max_depth:.1f}m", (indicator_start[0] - 60, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{self.min_depth:.1f}m", (indicator_start[0] - 30, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        cv2.putText(frame, f"{self.max_depth:.1f}m", (indicator_start[0] - 30, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
         # # Draw arrow on the indicator 
         if self.min_depth <= depth_value <= self.max_depth:
             normalized_depth = (depth_value - self.min_depth) / (self.max_depth - self.min_depth)
@@ -375,6 +377,7 @@ class DataInterface(QObject):
             arrow_x = indicator_start[0] + 20
             cv2.arrowedLine(frame, (arrow_x+10, arrow_y), (arrow_x, arrow_y), (255, 255, 255), 2, tipLength=1.2)
             cv2.rectangle(frame, (width - 50, arrow_y), indicator_end, (180, 160, 160), 25)   
+            
         return frame
     
     def overlay_pitch_yaw(self, frame):
