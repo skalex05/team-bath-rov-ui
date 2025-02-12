@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame, QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
 from PyQt6.QtCore import Qt
 
 from datainterface.data_interface import DataInterface
