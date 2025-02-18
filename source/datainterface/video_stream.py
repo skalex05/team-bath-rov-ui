@@ -34,6 +34,9 @@ class VideoStream:
         print(f"Initialising Cam {self.index + 1}")
         # Assign a VideoCapture device and attempt to read a frame
         self.camera_feed = cv2.VideoCapture(self.index)
+        self.camera_feed.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.camera_feed.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
         ret = self.camera_feed.grab()
         if ret:
             # VideoCapture Device is working
@@ -82,7 +85,7 @@ class VideoStream:
         ret, frame = self.camera_feed.retrieve()
 
         if ret:
-            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 30])
             return pickle.dumps(buffer)
         else:
             return pickle.dumps(None)

@@ -36,9 +36,30 @@ def get_rov_data():
 
     rov_data.randomise()
     rov_data.ambient_pressure = i
+    rov_data.attitude.x -= 0.2
+    rov_data.attitude.z += 0.2
     i += 0.1
     i %= 50
     i += 100
+
+    if rov_data.attitude.x < -180:
+        rov_data.attitude.x = 360 + rov_data.attitude.x
+    if rov_data.attitude.x > 180:
+        rov_data.attitude.x = -(360 + rov_data.attitude.x)
+
+    if rov_data.attitude.y < -180:
+        rov_data.attitude.y = 360 + rov_data.attitude.y
+    if rov_data.attitude.y > 180:
+        rov_data.attitude.y = -(360 + rov_data.attitude.y)
+
+    if rov_data.attitude.z < -180:
+        rov_data.attitude.z = 360 + rov_data.attitude.z
+    if rov_data.attitude.z > 180:
+        rov_data.attitude.z = -(360 + rov_data.attitude.z)
+
+    rov_data.depth += 0.01
+    rov_data.depth %= 5
+
     if maintain_depth:
         rov_data.depth = depth_value
     return pickle.dumps(rov_data)
