@@ -1,3 +1,5 @@
+import pickle
+
 from float_data import FloatData
 from sock_stream_send import SockStreamSend
 
@@ -9,7 +11,7 @@ def get_float_data():
 
     float_data.randomise()
 
-    return float_data
+    return pickle.dumps(float_data)
 
 
 data_thread = SockStreamSend(None, "localhost", 52625, 0.05, get_float_data, None)

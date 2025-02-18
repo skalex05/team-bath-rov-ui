@@ -20,10 +20,10 @@ class NavBar(QWidget):
 
     def __init__(self, parent_window: "Window", dock: Dock, widget_width: int = 80):
         super().__init__(parent_window)
-        self.close_button_widget = None
-        self.minimise_widget = None
-        self.buttons = None
-        self.dockable_widget = None  # Button that says either dock/undock
+        self.close_button_widget: QPushButton | None = None
+        self.minimise_widget: QPushButton | None = None
+        self.buttons: QWidget | None = None
+        self.dockable_widget: QPushButton | None = None  # Button that says either dock/undock
         self.docked = True  # Check if the parent window of this nav bar is docked/undocked
         self.dock = dock  # A reference to the dock window object
         self.app = parent_window.app
@@ -36,14 +36,14 @@ class NavBar(QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
-    def generate_layout(self):
+    def generate_layout(self) -> None:
         if self.dock is None:
             return
         single = True
         # Only allow view switching if the window is docked
         if self.docked:
             for i in range(self.dock.count()):
-                window = self.dock.widget(i)
+                window: Window = self.dock.widget(i)
                 if window == self.parent_window or not window.nav.docked:
                     continue
                 single = False
@@ -68,6 +68,7 @@ class NavBar(QWidget):
         # Add button for closing the program
         self.close_button_widget = QPushButton("Close")
         self.close_button_widget.setMaximumWidth(80)
+
         def on_close():
             self.app.close()
 
@@ -85,7 +86,7 @@ class NavBar(QWidget):
 
         self.buttons.show()
 
-    def clear_layout(self, layout: QLayout = None):
+    def clear_layout(self, layout: QLayout = None) -> None:
         # Remove all windows in the  layout
         if layout is None:
             layout = self.layout
@@ -97,10 +98,10 @@ class NavBar(QWidget):
             else:
                 self.clear_layout(i.layout())
 
-    def minimise(self):
+    def minimise(self) -> None:
         self.top_window.showMinimized()
 
-    def f_dock(self):
+    def f_dock(self) -> None:
         # Called when the dock button is pressed
         self.docked = True
         # Add the window associated with this nav bar to the dock
@@ -111,7 +112,7 @@ class NavBar(QWidget):
         # Set this nav bar's parent window to be at the top of the stack
         self.dock.setCurrentWidget(self.parent_window)
 
-    def f_undock(self):
+    def f_undock(self) -> None:
         self.docked = False
         self.dock.removeWidget(self.parent_window)
         self.top_window = self.parent_window
@@ -123,14 +124,12 @@ class NavBar(QWidget):
 
         self.parent_window.show()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event) -> None:
         chosen_screen = self.app.screens()[0]
         x, y = (event.globalPosition().x(), event.globalPosition().y())
-        print(x,y, "\n")
         for screen in self.app.screens():
             geom = screen.geometry()
-            print(geom)
-            if geom.x() <= x <= geom.x()+geom.width() and geom.y() <= y <= geom.y()+geom.height():
+            if geom.x() <= x <= geom.x() + geom.width() and geom.y() <= y <= geom.y() + geom.height():
                 chosen_screen = screen
                 break
 

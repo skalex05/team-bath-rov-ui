@@ -1,7 +1,10 @@
 import sys
-from threading import ThreadError
+from io import StringIO, TextIOWrapper
 
-from PyQt6.QtCore import pyqtSignal
+from threading import ThreadError
+from typing import Union
+
+from PyQt6.QtCore import pyqtSignal, QThread
 
 from copilot.copilot import Copilot
 from datainterface.data_interface import DataInterface
@@ -12,13 +15,17 @@ from tasks.task import Task
 
 from PyQt6.QtWidgets import QApplication, QWidget
 
+from window import Window
+
 
 class App(QApplication):
     """
         Class for storing about the overall application.
     """
     task_checked = pyqtSignal(QWidget)
-    def __init__(self, redirect_stdout, redirect_stderr, *args):
+
+    def __init__(self, redirect_stdout: Union[StringIO, TextIOWrapper],
+                 redirect_stderr: Union[StringIO, TextIOWrapper], *args):
         super().__init__(*args)
         self.closing = False
 
@@ -28,7 +35,7 @@ class App(QApplication):
 
         # Create the list of tasks the ROV should complete
 
-        self.tasks: [Task] = [
+        self.tasks: list[Task] = [
             Task(self, "Install AUV docking station", "Move the ROV around and get used to the controls"),
             Task(self, "Place probiotic irrigation system in designated location",
                  "Here is another task that you need to do!", (2, 30)),
@@ -75,7 +82,7 @@ class App(QApplication):
         self.grapher_window.attach_nav_bar(self.dock)
 
         # Add windows to the dock
-        self.dock.add_windows(self.copilot_window,self.pilot_window, self.grapher_window)
+        self.dock.add_windows(self.copilot_window, self.pilot_window, self.grapher_window)
 
         # Undock windows if extra monitors are available
         if len(self.screens()) > 1:
@@ -85,19 +92,25 @@ class App(QApplication):
             self.grapher_window.nav.f_undock()
 
         self.dock.showFullScreen()
-        self.dock.currentWidget().nav.clear_layout()
-        self.dock.currentWidget().nav.generate_layout()
+        current_window: Window = self.dock.currentWidget()
+        current_window.nav.clear_layout()
+        current_window.nav.generate_layout()
 
-        windows = [self.copilot_window, self.pilot_window, self.grapher_window]
+        windows: list[Window] = [self.copilot_window, self.pilot_window, self.grapher_window]
         # Create the data interface
         # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
+        self.data_interface_thread = QThread()
         self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
+        self.data_interface.moveToThread(self.data_interface_thread)
+        self.data_interface_thread.start()
+
+        # Connect windows to data interface signals
         for window in windows:
             window.attach_data_interface()
 
-        self.data_interface.rov_data_update.emit()
-        for i in range(self.data_interface.camera_feed_count):
-            self.data_interface.video_stream_update.emit(i)
+        # Initially set the rov/float to be disconnected
+        self.data_interface.rov_data_thread.on_disconnect.emit()
+        self.data_interface.float_data_thread.on_disconnect.emit()
 
         dark_theme = """
             Window {
@@ -131,23 +144,25 @@ class App(QApplication):
         """
         self.setStyleSheet(dark_theme)
 
-    def reset_task_completion(self):
+    def reset_task_completion(self) -> None:
         for task in self.tasks:
             task.completed = False
 
-    def close(self):
+    def close(self) -> None:
         if self.closing:
             return
         self.closing = True
         print("Closing", file=sys.__stdout__, flush=True)
         # Close dummy processes
         if self.rov_data_source_proc:
+            print("Attempting to close ROV data source", file=sys.__stdout__, flush=True)
             try:
                 self.rov_data_source_proc.terminate()
                 print("Killed ROV data source", file=sys.__stdout__, flush=True)
             except Exception as e:
                 print("Couldn't kill ROV data source - ", e, file=sys.__stdout__, flush=True)
         if self.float_data_source_proc:
+            print("Attempting to close Float data source", file=sys.__stdout__, flush=True)
             try:
                 self.float_data_source_proc.terminate()
                 print("Killed float data source", file=sys.__stdout__, flush=True)

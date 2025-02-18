@@ -2,15 +2,15 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtGui import QScreen
 
+from datainterface.data_interface import DataInterface
 from nav_bar.nav_bar import NavBar
 
 if TYPE_CHECKING:
     from app import App
 
 from PyQt6 import uic
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFrame
-from screeninfo.common import Monitor
 
 
 class Window(QFrame):
@@ -19,24 +19,24 @@ class Window(QFrame):
         Allows for consistent styling of the windows.
         Specific windows should inherit this class for proper usage.
     """
-    def __init__(self, file, app: "App", screen: QScreen):
+    def __init__(self, file_path: str, app: "App", screen: QScreen):
         super().__init__()
-        self.nav = None
+        self.nav: NavBar | None = None
         self.app = app
+        self.data: DataInterface | None = None
         self.desired_monitor = screen  # When undocked, this window will be displayed on this monitor
         # Load a .ui file into this window
-        uic.loadUi(file, self)
+        uic.loadUi(file_path, self)
         # Position the window and remove the default window frame
         self.setGeometry(screen.availableGeometry())
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
-    def attach_nav_bar(self, dock):
+    def attach_nav_bar(self, dock) -> None:
         self.nav = NavBar(self, dock)
         self.nav.generate_layout()
 
-    def attach_data_interface(self):
+    def attach_data_interface(self) -> None:
         self.data = self.app.data_interface
 
     def closeEvent(self, e):
         self.app.close()
-

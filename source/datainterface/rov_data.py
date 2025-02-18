@@ -4,11 +4,11 @@ from vector3 import Vector3
 
 
 # Temp function for generating a random float (optionally rounded to 'dp' decimal places)
-def rand_float_range(a: int | float, b: int | float, dp: int = None):
+def rand_float_range(a: int | float, b: int | float, dp: int = None) -> float:
     return round(a + random() * (b - a), dp)
 
 
-def rand_vector3(a: int | float, b: int | float, dp: int = None):
+def rand_vector3(a: int | float, b: int | float, dp: int = None) -> Vector3:
     return Vector3(
         rand_float_range(a, b, dp),
         rand_float_range(a, b, dp),
@@ -42,7 +42,6 @@ class ROVData:
         self.angular_velocity = rand_vector3(-5, 5, 2)
         self.acceleration = rand_vector3(-1, 1, 2)
         self.velocity = rand_vector3(-5, 5, 2)
-        self.depth = rand_float_range(0.5, 2.5, 2)
         self.ambient_temperature = rand_float_range(23, 27, 2)
         self.ambient_pressure = rand_float_range(100, 130, 2)
         self.internal_temperature = rand_float_range(40, 70, 1)

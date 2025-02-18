@@ -1,10 +1,15 @@
+from typing import TYPE_CHECKING, Any
+
 from PyQt6.QtWidgets import QWidget, QCheckBox, QLabel
 from PyQt6 import uic
 import os
 
+if TYPE_CHECKING:
+    from app import App
+
 
 class Task(QWidget):
-    def __init__(self, app, title: str, description: str, start_time: tuple = (0, 0)):
+    def __init__(self, app: "App", title: str, description: str, start_time: tuple = (0, 0)):
         super().__init__()
         uic.loadUi(os.path.join("tasks", "task_widget.ui"), self)
 
@@ -20,7 +25,7 @@ class Task(QWidget):
 
         self.checkbox.clicked.connect(self.on_check)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         if key == "title":
             self.checkbox.setText(value)
         elif key == "completed":
@@ -34,6 +39,3 @@ class Task(QWidget):
     def on_check(self):
         self.completed = not self.completed
         self.app.task_checked.emit(self)
-
-
-
