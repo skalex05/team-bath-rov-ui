@@ -103,17 +103,24 @@
        </widget>
       </item>
       <item>
-       <spacer name="verticalSpacer_4">
-        <property name="orientation">
-         <enum>Qt::Orientation::Vertical</enum>
+       <widget class="QPushButton" name="eDNAButton">
+        <property name="text">
+         <string>Process eDNA database and unknown samples</string>
         </property>
-        <property name="sizeHint" stdset="0">
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="eDNA_results">
+        <property name="minimumSize">
          <size>
-          <width>20</width>
-          <height>40</height>
+          <width>0</width>
+          <height>150</height>
          </size>
         </property>
-       </spacer>
+        <property name="text">
+         <string>eDNA results</string>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QLabel" name="label_3">
