@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING, Sequence
 from io import StringIO
 import pygame
 
-from PyQt6.QtCore import pyqtSignal, QObject, QTimer, Qt
-from PyQt6.QtGui import QImage, QPainter, QPixmap
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer
+from PyQt6.QtGui import QImage
 
 from float_data import FloatData
 from rov_data import ROVData
@@ -54,7 +54,7 @@ class DataInterface(QObject):
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
-        self.attitude = Vector3(0, 0, 0)
+        self.attitude = Vector3(0, 0, 0)  # Pitch, Yaw, Roll
         self.angular_acceleration = Vector3(0, 0, 0)
         self.angular_velocity = Vector3(0, 0, 0)
         self.acceleration = Vector3(0, 0, 0)
@@ -87,15 +87,10 @@ class DataInterface(QObject):
         pygame.joystick.init()
         self.joystick = None
 
-        self.overlay_enabled = True
-        self.debug_print = False
         self.debug_angle = 0.0
         self.last_debug_time = time.time()
         self.min_depth = 0.0
         self.max_depth = 5.0
-
-        self.attitude_center_pixmap = QPixmap("datainterface/attitudeCenter.png")
-        self.attitude_lines_pixmap = QPixmap("datainterface/attitudeLines.png")
 
         def on_camera_feed_disconnect(i):
             self.camera_feeds[i] = None
@@ -210,73 +205,13 @@ class DataInterface(QObject):
 
         # Decode the frame back into a numpy pixel array
         frame = cv2.imdecode(encoded, 1)
-        frame = self.overlay_pitch_yaw(frame)
-        frame = self.overlay_depth(frame)
         h, w, _ = frame.shape
-        # Wait until no other threads are accessing the VideoFrame
 
         # Generate the new QImage for the feed
         frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
-        if i == 0 and self.overlay_enabled:
-            # resize overlays if frame size changed
 
-            scaled_center_pixmap = self.attitude_center_pixmap.scaled(w, h)
-            scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(w, h)
-
-            painter = QPainter(frame)
-
-            painter.drawPixmap(0, 0, scaled_center_pixmap)
-
-            painter.save()
-            painter.translate(w / 2, h / 2)
-
-            # base rotation is self.attitude.z, add debug_angle if debug is on
-            total_rotation = self.attitude.z
-
-            painter.rotate(total_rotation)
-            painter.translate(-w / 2, -h / 2)
-            painter.drawPixmap(0, 0, scaled_lines_pixmap)
-            painter.restore()
-
-            painter.end()
-
+        #  Wait until no other threads are accessing the VideoFrame
         with self.camera_feeds[i].lock:
-            # Generate the new QImage for the feed
-            frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
-            if i == 0 and self.overlay_enabled:
-                #resize overlays if frame size changed
-                if self.current_frame_size != (w, h):
-                    self.current_frame_size = (w, h)
-                    self.scaled_center_pixmap = self.attitude_center_pixmap.scaled(w, h)
-                    self.scaled_lines_pixmap = self.attitude_lines_pixmap.scaled(w, h)
-
-                #DEBUG PART
-                if self.debug_print:
-                    current_time = time.time()
-                    elapsed = current_time - self.last_debug_time
-                    self.last_debug_time = current_time
-                    #change angle by 10 degrees per second * elapsed time
-                    self.debug_angle += 10.0 * elapsed
-                    self.debug_angle %= 360.0
-
-                painter = QPainter(frame)
-                painter.drawPixmap(0, 0, self.scaled_center_pixmap)
-
-                painter.save()
-                painter.translate(w/2, h/2)
-
-                #base rotation is self.attitude.z, add debug_angle if debug is on
-                total_rotation = self.attitude.z
-                if self.debug_print:
-                    total_rotation += self.debug_angle
-
-                painter.rotate(total_rotation)
-                painter.translate(0,(self.attitude.x % 360 -180 ) / 180 * (h/2))
-                painter.translate(-w/2, -h/2)
-                painter.drawPixmap(0, 0, self.scaled_lines_pixmap)
-                painter.restore()
-
-                painter.end()
             self.camera_feeds[i].frame = frame
             self.camera_feeds[i].new_frame.emit()
 
@@ -348,52 +283,3 @@ class DataInterface(QObject):
             video_stream_thread.wait(10)
         print("Data Interface closed successfully", file=sys.__stdout__, flush=True)
 
-    def overlay_depth(self, frame):
-        depth_value = self.depth 
-        #text
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        text_color = (255, 255, 255) 
-        thickness = 1
-        height, width = frame.shape[:2]
-        #Display text
-        depth_text = f"Depth: {depth_value:.2f} m"
-        text_size = cv2.getTextSize(depth_text, font, font_scale, thickness)[0]
-        text_x = width - text_size[0] - 10 
-        text_y = height - 10 
-        cv2.putText(frame, depth_text, (text_x, text_y), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        #Indicator
-        indicator_start = (width - 50, height - 110) 
-        indicator_end = (width - 50, height - 40) 
-        cv2.rectangle(frame, indicator_start, indicator_end, (50, 50, 50), 25)  
-        cv2.putText(frame, f"{self.min_depth:.1f}m", (indicator_start[0] - 60, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{self.max_depth:.1f}m", (indicator_start[0] - 60, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{self.min_depth:.1f}m", (indicator_start[0] - 30, indicator_end[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{self.max_depth:.1f}m", (indicator_start[0] - 30, indicator_start[1]), font, font_scale, text_color, thickness, cv2.LINE_AA)
-        # # Draw arrow on the indicator 
-        if self.min_depth <= depth_value <= self.max_depth:
-            normalized_depth = (depth_value - self.min_depth) / (self.max_depth - self.min_depth)
-            arrow_y = int(indicator_end[1] + (indicator_start[1] - indicator_end[1]) * normalized_depth)
-            arrow_x = indicator_start[0] + 20
-            cv2.arrowedLine(frame, (arrow_x+10, arrow_y), (arrow_x, arrow_y), (255, 255, 255), 2, tipLength=1.2)
-            cv2.rectangle(frame, (width - 50, arrow_y), indicator_end, (180, 160, 160), 25)   
-            
-        return frame
-    
-    def overlay_pitch_yaw(self, frame):
-        pitch_value = self.attitude.x 
-        yaw_value = self.attitude.y   
-        # Text
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.4
-        color = (255, 255, 255) 
-        thickness = 2
-        height, width = frame.shape[:2]
-        center_x = width // 2
-        center_y = height // 2 + 30
-        #Off center values
-        pitch_position = (center_x - 70, center_y) 
-        roll_position = (center_x + 40, center_y) 
-        cv2.putText(frame, f"{pitch_value:.1f}", pitch_position, font, font_scale, color, thickness, cv2.LINE_AA)
-        cv2.putText(frame, f"{yaw_value:.1f}", roll_position, font, font_scale, color, thickness, cv2.LINE_AA)
-        return frame

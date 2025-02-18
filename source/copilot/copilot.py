@@ -105,7 +105,7 @@ class Copilot(Window):
         self.disable_alerts_action.clicked.connect(self.disable_alerts)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
-        self.main_cam_display = VideoDisplay(self.main_cam)
+        self.main_cam_display = VideoDisplay(self.main_cam, self.app, True)
         self.main_cam_display.pixmap_ready.connect(lambda pixmap: self.main_cam.setPixmap(pixmap))
         self.main_cam_display.on_disconnect.connect(lambda: self.main_cam.setText("Main Camera Disconnected"))
 

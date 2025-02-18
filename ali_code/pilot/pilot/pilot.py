@@ -1,29 +1,28 @@
 import os
-
-from PyQt6.QtCore import QThread
+import sys
+from PyQt6.uic import loadUi
+from PyQt6.QtWidgets import QMainWindow, QFrame, QWidget, QVBoxLayout, QSizePolicy, QPushButton, QCheckBox, QLabel, QProgressBar
+from PyQt6.QtCore import QThread, QTimer
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QLabel, QProgressBar, QFrame
 
+from pilot.pilotimuRender import IMUOpenGLCube  # Import the updated OpenGL module
 from datainterface.video_display import VideoDisplay
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
-
 def update_pixmap(label: QLabel, pixmap: QPixmap) -> None:
     label.setPixmap(pixmap)
-
 
 def display_disconnect(label: QLabel, text: str) -> None:
     label.setText(text)
 
-
 class Pilot(Window):
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
+        self.solid = False
 
         # Setup Camera Feeds
-
         self.cam_displays: list[VideoDisplay] = []
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
@@ -35,7 +34,7 @@ class Pilot(Window):
                              [self.main_cam, self.secondary_1_cam, self.secondary_2_cam]):
 
             # Create Video Display and connect to signals
-            display = VideoDisplay(cam, self.app, "Main Camera" == name)
+            display = VideoDisplay(cam)
             display.pixmap_ready.connect(lambda pixmap, _cam=cam: _cam.setPixmap(pixmap))
             display.on_disconnect.connect(lambda _cam=cam, _name=name: _cam.setText(f"{_name} Disconnected"))
 
@@ -51,6 +50,57 @@ class Pilot(Window):
         self.progressTempBar: QProgressBar = self.findChild(QProgressBar, "temp_bar")
         self.progressTempBar.setMinimum(20)
         self.progressTempBar.setMaximum(30)
+
+        # OpenGL Integration with new structure
+        placeholder_frame = self.findChild(QFrame, "openglPlaceholderFrame")
+        placeholder_widget = placeholder_frame.findChild(QWidget, "openglPlaceholder") if placeholder_frame else None
+
+        if placeholder_widget:
+            self.opengl_widget = IMUOpenGLCube(port="COM3", parent=placeholder_widget)
+            self.opengl_widget.setGeometry(0, 0, placeholder_widget.width(), placeholder_widget.height())
+            self.opengl_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            self.opengl_widget.show()
+
+        # Find and connect UI buttons
+        self.reset_button = self.findChild(QPushButton, "resetButton")
+        self.checkbox_solid = self.findChild(QCheckBox, "checkbox_solid")
+        self.checkbox_mesh = self.findChild(QCheckBox, "checkbox_mesh")
+        self.start_stop_button = self.findChild(QPushButton, "startstopButton")
+
+        if self.reset_button:
+            self.reset_button.clicked.connect(self.opengl_widget.reset_rotation)
+
+        if self.checkbox_solid and self.checkbox_mesh:
+            self.checkbox_solid.toggled.connect(self.handle_checkbox_toggle)
+            self.checkbox_mesh.toggled.connect(self.handle_checkbox_toggle)
+            self.checkbox_mesh.setChecked(True)
+
+        if self.start_stop_button:
+            self.start_stop_button.clicked.connect(self.toggle_rendering)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.opengl_widget.update)
+        self.timer.start(16)
+        self.rendering_active = True
+
+    def handle_checkbox_toggle(self):
+        if self.checkbox_solid.isChecked() and not self.solid:
+            self.checkbox_mesh.setChecked(False)
+            self.checkbox_solid.setChecked(True)
+            self.solid = True
+            self.opengl_widget.set_render_mode("solid")
+        if self.checkbox_mesh.isChecked() and self.solid:
+            self.checkbox_solid.setChecked(False)
+            self.checkbox_mesh.setChecked(True)
+            self.solid = False
+            self.opengl_widget.set_render_mode("wireframe")
+
+    def toggle_rendering(self):
+        if self.rendering_active:
+            self.timer.stop()
+        else:
+            self.timer.start(16)
+        self.rendering_active = not self.rendering_active
 
     def attach_data_interface(self) -> None:
         self.data = self.app.data_interface
@@ -89,3 +139,9 @@ class Pilot(Window):
         value_temp = self.data.ambient_temperature
         self.progressTempBar.setValue(int(value_temp))
         self.temp_value.setText(f"{round(value_temp)}{'°'}")
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = Pilot(os.path.join(path_dir, "pilot.ui"))
+    window.show()
+    sys.exit(app.exec())
