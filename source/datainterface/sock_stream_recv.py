@@ -17,7 +17,6 @@ class SockStreamRecv(threading.Thread):
     def __init__(self, app: "App", addr: str, port: int,
                  on_recv: Callable, on_connect: Callable = None, on_disconnect: Callable = None,
                  buffer_size: int = 1024, protocol: Literal["tcp", "udp"] = "tcp", timeout: float = 0.5):
-        print(protocol, file=sys.__stdout__, flush=True)
         protocol = protocol.lower()
         if protocol not in ["tcp", "udp"]:
             raise ValueError("SockStream Protocol must either be TCP or UDP")
@@ -32,6 +31,7 @@ class SockStreamRecv(threading.Thread):
         self.app = app
         self.timeout = timeout
         super().__init__()
+        print(1, file=sys.__stdout__, flush=True)
 
     def run(self) -> None:
         # Run in either with either TCP or UDP protocols

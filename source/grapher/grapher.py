@@ -126,6 +126,11 @@ class Grapher(Window):
                 return
             sanitised_years.append(v)
 
+        def clear(out):
+            print("Migration Model Complete")
+            self.area1.setText("")
+
+
         task = GraphingTask(lambda: model_migration(start_year, end_year,
                                              sanitised_years,
                                              [
@@ -143,7 +148,8 @@ class Grapher(Window):
                                                  (440, 380),
                                                  (650, 280),
                                                  (750, 180),
-                                             ]))
+                                             ]),
+                            clear)
 
         QThreadPool.globalInstance().start(task)
 
