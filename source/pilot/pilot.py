@@ -20,7 +20,7 @@ def display_disconnect(label: QLabel, text: str) -> None:
 
 class Pilot(Window):
     def __init__(self, *args):
-        super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
+        super().__init__(os.path.join(path_dir, "pilot3.ui"), *args)
 
         # Setup Camera Feeds
 

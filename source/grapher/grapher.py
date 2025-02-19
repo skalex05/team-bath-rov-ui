@@ -2,15 +2,19 @@ import os
 import sys
 import shutil
 
+
 import cv2
 from PyQt6.QtCore import QThreadPool
 
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit
+from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox
 from PyQt6.QtGui import QIcon
 
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from grapher.graphGenerator import GraphGenerator
+
 from graphing_task import GraphingTask
+from grapher.eDNASampler import eDNASampler
+
 from window import Window
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
@@ -72,7 +76,9 @@ class Grapher(Window):
         self.graph_generator = GraphGenerator()  # From graphGenerator.py
         self.toolbar = None
 
-        if self.graphArea.layout() is None:  # Making sure graph area has layout
+        self.eDNA_results: QLabel = self.findChild(QLabel, "eDNA_results")
+
+        if self.graphArea.layout() is None: # Making sure graph area has layout
             self.graphArea.setLayout(QVBoxLayout())
 
         # Enable checkboxes for vel & acceleration axes
@@ -153,6 +159,9 @@ class Grapher(Window):
 
         QThreadPool.globalInstance().start(task)
 
+
+        if hasattr(self, "eDNAButton"):
+            self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
 
     def on_velocity_dropdown_clicked(self):
         '''Toggle visibility of velocity checkboxes when vel button pressed'''
@@ -240,6 +249,15 @@ class Grapher(Window):
             print(f"Unhandled Error in on_depth_clicked: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def on_eDNA_clicked(self):
+        try:
+            self.eDNA_results.setText("Loading...")
+            sampler = eDNASampler()
+            results = sampler.generate_results()
+            self.eDNA_results.setText('\n'.join(results))
+        except:
+            QMessageBox.warning("Error in eDNA sampling. Check pytesseract and image locations")
 
     def update_button_icon(self, button_name, image_path):
         button = getattr(self, button_name, None)

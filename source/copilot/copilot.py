@@ -285,6 +285,7 @@ class Copilot(Window):
             self.data.internal_temperature_alert_once = True
             self.data.float_depth_alert_once = True
             self.all_alerts_disabled = True
+            print("Alerts disabled")
         else:
             self.data.attitude_alert_once = False
             self.data.depth_alert_once = False
@@ -294,6 +295,7 @@ class Copilot(Window):
             self.data.float_depth_alert_once = False
             self.all_alerts_disabled = False
             self.all_alerts_disabled = False
+            print("Alerts renabled")
 
     def connect_float(self) -> None:
         if self.app.float_data_source_proc is None:
