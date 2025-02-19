@@ -2,7 +2,7 @@ import csv
 import time
 
 def simulate_serial_data(csv_file, txt_file, data_rate_hz=500):
-    ''' Just some random file that reads csv and writes it to txt. Can't be run simulataneously'''
+    ''' Just some random file that reads csv and writes it to txt. Can't be run simultaneously'''
     with open(csv_file, 'r') as csvfile:
         reader = csv.reader(csvfile)
         headers = next(reader)  # Skip headers

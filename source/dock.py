@@ -22,12 +22,11 @@ class Dock(QStackedWidget):
         super().__init__()
         self.app = app
 
-        # Create a frameless 1920x1080 window
-        self.setGeometry(screen.availableGeometry())
         self.widgetRemoved.connect(self.on_dock_change)  # Will run when a window is docked/undocked
         # Update the dock's title to be the same as the currently visible window
         self.currentChanged.connect(self.on_current_window_change)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setGeometry(screen.availableGeometry())
 
     def is_dockable(self) -> bool:
         return len(self.app.screens()) > 1
