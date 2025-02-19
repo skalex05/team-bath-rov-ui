@@ -28,8 +28,8 @@ class Window(QFrame):
         # Load a .ui file into this window
         uic.loadUi(file_path, self)
         # Position the window and remove the default window frame
-        self.setGeometry(screen.availableGeometry())
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setGeometry(screen.availableGeometry())
 
     def attach_nav_bar(self, dock) -> None:
         self.nav = NavBar(self, dock)
