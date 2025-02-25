@@ -34,14 +34,12 @@ class eDNASampler:
         contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         text = ""
 
-        print("Extracting Text")
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             cropped = img[y:y + h, x:x + w]
             text += pytesseract.image_to_string(cropped, config='--psm 6')
 
         clean_text = ''.join([c if c in "ACGT" else " " for c in text]).strip()
-        print("Text Extraction Complete")
         return clean_text
 
     def generate_results(self):
