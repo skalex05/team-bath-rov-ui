@@ -96,8 +96,6 @@ class Grapher(Window):
         self.accelerationDropdownButton = self.findChild(QPushButton, "accelerationDropdownButton")
         self.accelerationDropdownButton.clicked.connect(self.on_acceleration_dropdown_clicked)
 
-        for child in self.children():
-            print(child, file=sys.__stdout__, flush=True)
         self.MigrationModelButton = self.findChild(QPushButton, "MigrationModelButton")
         self.MigrationModelButton.clicked.connect(self.on_generate_model_clicked)
 
@@ -137,6 +135,11 @@ class Grapher(Window):
                 return
             sanitised_years.append(v)
 
+        def clear(out):
+            print("Migration Model Complete")
+            self.area1.setText("")
+
+
         task = GraphingTask(lambda: model_migration(start_year, end_year,
                                              sanitised_years,
                                              [
@@ -154,7 +157,8 @@ class Grapher(Window):
                                                  (440, 380),
                                                  (650, 280),
                                                  (750, 180),
-                                             ]))
+                                             ]),
+                            clear)
 
         QThreadPool.globalInstance().start(task)
 
