@@ -6,7 +6,7 @@ import shutil
 import cv2
 from PyQt6.QtCore import QThreadPool
 
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox
+from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox, QLabel
 from PyQt6.QtGui import QIcon
 
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
@@ -94,8 +94,6 @@ class Grapher(Window):
         self.accelerationDropdownButton = self.findChild(QPushButton, "accelerationDropdownButton")
         self.accelerationDropdownButton.clicked.connect(self.on_acceleration_dropdown_clicked)
 
-        for child in self.children():
-            print(child, file=sys.__stdout__, flush=True)
         self.MigrationModelButton = self.findChild(QPushButton, "MigrationModelButton")
         self.MigrationModelButton.clicked.connect(self.on_generate_model_clicked)
 

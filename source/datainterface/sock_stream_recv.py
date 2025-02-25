@@ -31,7 +31,6 @@ class SockStreamRecv(threading.Thread):
         self.app = app
         self.timeout = timeout
         super().__init__()
-        print(1, file=sys.__stdout__, flush=True)
 
     def run(self) -> None:
         # Run in either with either TCP or UDP protocols
