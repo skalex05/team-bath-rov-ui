@@ -4,9 +4,9 @@ import shutil
 
 
 import cv2
-from PyQt6.QtCore import QThreadPool
+from PyQt6.QtCore import QThreadPool, QTimer
 
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox
+from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox, QLabel
 from PyQt6.QtGui import QIcon
 
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
@@ -16,6 +16,8 @@ from graphing_task import GraphingTask
 from grapher.eDNASampler import eDNASampler
 
 from window import Window
+
+from functools import partial
 
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -107,6 +109,9 @@ class Grapher(Window):
 
         self.depthButton = self.findChild(QPushButton, "depthButton")
         self.depthButton.clicked.connect(self.on_depth_clicked)
+
+        self.eDNAButton = self.findChild(QPushButton, "eDNAButton")
+        self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
 
         self.area1 = self.findChild(QLineEdit, "Area1Year")
         self.area2 = self.findChild(QLineEdit, "Area2Year")
@@ -244,14 +249,41 @@ class Grapher(Window):
             import traceback
             traceback.print_exc()
 
+
     def on_eDNA_clicked(self):
         try:
             self.eDNA_results.setText("Loading...")
-            sampler = eDNASampler()
-            results = sampler.generate_results()
-            self.eDNA_results.setText('\n'.join(results))
-        except:
-            QMessageBox.warning("Error in eDNA sampling. Check pytesseract and image locations")
+
+            self.elapsed_time = 0
+
+            if hasattr(self, "loading_timer") and self.loading_timer.isActive():
+                self.loading_timer.stop()
+
+            self.loading_timer = QTimer(self)
+            self.loading_timer.timeout.connect(self.update_loading_text)
+            self.loading_timer.start(1000)
+
+
+            def task_function():
+                sampler = eDNASampler()
+                results = sampler.generate_results()
+
+                QTimer.singleShot(0, self.loading_timer.stop)
+
+                # 'partial' to ensure UI update happens in main thread with the final results
+                QTimer.singleShot(0, partial(self.eDNA_results.setText, '\n'.join(results)))
+
+            task = GraphingTask(task_function)
+            QThreadPool.globalInstance().start(task)
+
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error in eDNA sampling: {str(e)}")
+
+
+    def update_loading_text(self):
+        self.elapsed_time += 1
+        self.eDNA_results.setText(f"Loading... ({self.elapsed_time}s)")
+
 
     def update_button_icon(self, button_name, image_path):
         button = getattr(self, button_name, None)
