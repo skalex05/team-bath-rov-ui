@@ -2,7 +2,6 @@ import os
 import sys
 import shutil
 
-
 import cv2
 from PyQt6.QtCore import QThreadPool, QTimer
 
@@ -22,6 +21,8 @@ from functools import partial
 path_dir = os.path.dirname(os.path.realpath(__file__))
 
 generating_model = False
+
+
 def model_migration(start_year: int, end_year: int, migration_years: list[int], input_images: list[str],
                     year_display_positions: list[tuple[int, int]]):
     global generating_model
@@ -80,7 +81,7 @@ class Grapher(Window):
 
         self.eDNA_results: QLabel = self.findChild(QLabel, "eDNA_results")
 
-        if self.graphArea.layout() is None: # Making sure graph area has layout
+        if self.graphArea.layout() is None:  # Making sure graph area has layout
             self.graphArea.setLayout(QVBoxLayout())
 
         # Enable checkboxes for vel & acceleration axes
@@ -136,32 +137,33 @@ class Grapher(Window):
             sanitised_years.append(v)
 
         def clear(out):
-            print("Migration Model Complete")
             self.area1.setText("")
-
+            self.area2.setText("")
+            self.area3.setText("")
+            self.area4.setText("")
+            self.area5.setText("")
 
         task = GraphingTask(lambda: model_migration(start_year, end_year,
-                                             sanitised_years,
-                                             [
-                                                 r"Migration Images\Area0.png",
-                                                 r"Migration Images\Area1.png",
-                                                 r"Migration Images\Area2.png",
-                                                 r"Migration Images\Area3.png",
-                                                 r"Migration Images\Area4.png",
-                                                 r"Migration Images\Area5.png",
-                                             ],
-                                             [
-                                                 (70, 830),
-                                                 (240, 620),
-                                                 (340, 450),
-                                                 (440, 380),
-                                                 (650, 280),
-                                                 (750, 180),
-                                             ]),
+                                                    sanitised_years,
+                                                    [
+                                                        r"Migration Images\Area0.png",
+                                                        r"Migration Images\Area1.png",
+                                                        r"Migration Images\Area2.png",
+                                                        r"Migration Images\Area3.png",
+                                                        r"Migration Images\Area4.png",
+                                                        r"Migration Images\Area5.png",
+                                                    ],
+                                                    [
+                                                        (70, 830),
+                                                        (240, 620),
+                                                        (340, 450),
+                                                        (440, 380),
+                                                        (650, 280),
+                                                        (750, 180),
+                                                    ]),
                             clear)
 
         QThreadPool.globalInstance().start(task)
-
 
         if hasattr(self, "eDNAButton"):
             self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
@@ -253,7 +255,6 @@ class Grapher(Window):
             import traceback
             traceback.print_exc()
 
-
     def on_eDNA_clicked(self):
         try:
             self.eDNA_results.setText("Loading...")
@@ -267,27 +268,23 @@ class Grapher(Window):
             self.loading_timer.timeout.connect(self.update_loading_text)
             self.loading_timer.start(1000)
 
-
             def task_function():
                 sampler = eDNASampler()
-                results = sampler.generate_results()
+                return sampler.generate_results()
 
-                QTimer.singleShot(0, self.loading_timer.stop)
+            def on_task_complete(results):
+                self.loading_timer.stop()
+                self.eDNA_results.setText('\n'.join(results))
 
-                # 'partial' to ensure UI update happens in main thread with the final results
-                QTimer.singleShot(0, partial(self.eDNA_results.setText, '\n'.join(results)))
-
-            task = GraphingTask(task_function)
+            task = GraphingTask(task_function, on_task_complete)
             QThreadPool.globalInstance().start(task)
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Error in eDNA sampling: {str(e)}")
 
-
     def update_loading_text(self):
         self.elapsed_time += 1
         self.eDNA_results.setText(f"Loading... ({self.elapsed_time}s)")
-
 
     def update_button_icon(self, button_name, image_path):
         button = getattr(self, button_name, None)
