@@ -16,6 +16,14 @@ from sock_stream_send import SockStreamSend, SockSend
 # Temporary function to supply data to the UI
 # Available Port Numbers: 49152-65535
 
+local_test = True
+
+ROV_IP = "0.0.0.0"
+if local_test:
+    UI_IP = "localhost"
+else:
+    raise "Please set UI_IP to the IP of the device you would like to connect to."
+
 rov_data = ROVData()
 
 i = 100
@@ -36,8 +44,6 @@ def get_rov_data():
 
     rov_data.randomise()
     rov_data.ambient_pressure = i
-    rov_data.attitude.x -= 0.2
-    rov_data.attitude.z += 0.2
     i += 0.1
     i %= 50
     i += 100
