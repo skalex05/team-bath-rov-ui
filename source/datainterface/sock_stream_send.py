@@ -45,6 +45,7 @@ class SockStreamSend(threading.Thread):
         data_client.setblocking(False)
         data_client.settimeout(self.timeout)
 
+        print_conn_err = True
         while self.app is None or not self.app.closing:
             time.sleep(0)
             try:
@@ -58,6 +59,7 @@ class SockStreamSend(threading.Thread):
 
                     data_client.sendto(payload, (self.addr, self.port))
                     if not self.connected:
+                        print_conn_err = True
                         self.connected = True
                         if self.on_connect:
                             self.on_connect()
@@ -69,7 +71,14 @@ class SockStreamSend(threading.Thread):
                     print(e)
                     continue
 
-            except (ConnectionError, TimeoutError):
+            except (ConnectionError, TimeoutError, OSError) as e:
+                if type(e) == OSError and print_conn_err:
+                    if self.app:
+                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
+                    else:
+                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
+                    print_conn_err = False
+
                 if self.connected and self.on_disconnect is not None:
                     self.on_disconnect()
                 self.connected = False
@@ -79,6 +88,7 @@ class SockStreamSend(threading.Thread):
                 data_client.settimeout(self.timeout)
 
     def run_tcp(self) -> None:
+        print_conn_err = True
         while self.app is None or not self.app.closing:
             time.sleep(0)  # Relinquish thread from CPU
             # Try and connect to server (Non-blocking)
@@ -89,7 +99,16 @@ class SockStreamSend(threading.Thread):
                 if not self.connected and self.on_connect:
                     self.on_connect()
                 self.connected = True
+                print_conn_err = True
             except (TimeoutError, ConnectionError):
+                continue
+            except OSError:
+                if print_conn_err:
+                    if self.app:
+                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
+                    else:
+                        print(f"Cannot connect on {self.addr}:{self.port}")
+                    print_conn_err = False
                 continue
 
             try:
@@ -106,7 +125,10 @@ class SockStreamSend(threading.Thread):
                         if data is None:
                             continue
                     except Exception as e:
-                        print(e)
+                        if self.app:
+                            print(e, file=self.app.redirect_stderr)
+                        else:
+                            print(e)
                         continue
 
                     # Attach the header containing the size of payload

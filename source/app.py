@@ -25,8 +25,21 @@ class App(QApplication):
     task_checked = pyqtSignal(QWidget)
 
     def __init__(self, redirect_stdout: Union[StringIO, TextIOWrapper],
-                 redirect_stderr: Union[StringIO, TextIOWrapper], *args):
-        super().__init__(*args)
+                 redirect_stderr: Union[StringIO, TextIOWrapper], argv, local_test=True):
+        self.redirect_stdout = redirect_stdout
+        self.redirect_stderr = redirect_stderr
+
+        self.local_test = local_test
+        if local_test:
+            self.UI_IP = "localhost"
+            self.ROV_IP = "localhost"
+            self.FLOAT_IP = "localhost"
+        else:
+            self.UI_IP = "0.0.0.0"
+            self.ROV_IP = "192.168.1.235"
+            self.FLOAT_IP = "localhost"
+
+        super().__init__(argv)
         self.closing = False
 
         # TEMPORARY FOR PROCESS SIMULATION
@@ -143,6 +156,10 @@ class App(QApplication):
             }
         """
         self.setStyleSheet(dark_theme)
+
+        if not local_test:
+            print("Note: RUN_ROV_LOCALLY is set to False in main.py - Only use this when testing with the "
+                  "Raspberry Pi or for production")
 
     def reset_task_completion(self) -> None:
         for task in self.tasks:
