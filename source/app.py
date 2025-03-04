@@ -25,7 +25,7 @@ class App(QApplication):
     task_checked = pyqtSignal(QWidget)
 
     def __init__(self, redirect_stdout: Union[StringIO, TextIOWrapper],
-                 redirect_stderr: Union[StringIO, TextIOWrapper], argv, local_test=True):
+                 redirect_stderr: Union[StringIO, TextIOWrapper], argv, local_test=True, rov_ip="localhost", float_ip="localhost"):
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
@@ -36,8 +36,8 @@ class App(QApplication):
             self.FLOAT_IP = "localhost"
         else:
             self.UI_IP = "0.0.0.0"
-            self.ROV_IP = "192.168.1.235"
-            self.FLOAT_IP = "localhost"
+            self.ROV_IP = rov_ip
+            self.FLOAT_IP = float_ip
 
         super().__init__(argv)
         self.closing = False
