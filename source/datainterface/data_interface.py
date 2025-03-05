@@ -25,10 +25,6 @@ if TYPE_CHECKING:
     from app import App
     from numpy import ndarray
 
-ROV_IP = "localhost"
-FLOAT_IP = "localhost"
-
-
 class DataInterface(QObject):
     rov_data_update = pyqtSignal()
     float_data_update = pyqtSignal()
@@ -42,7 +38,7 @@ class DataInterface(QObject):
     internal_temperature_alert = pyqtSignal()
     float_depth_alert = pyqtSignal()
 
-    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: StringIO, redirect_stderr: StringIO):
+    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: StringIO, redirect_stderr: StringIO, local_test=True):
         super().__init__()
         self.app: "App" = app
         self.windows: Sequence["Window"] = windows
@@ -73,6 +69,11 @@ class DataInterface(QObject):
         # MATE FLOAT Data
         self.float_depth: float = 0
 
+        # STDOUT UI Thread
+        # This thread processes redirected stdout to be displayed in the UI and in console
+        self.stdout_ui_thread = Thread(target=self.f_stdout_ui_thread)
+        self.stdout_ui_thread.start()
+
         # Camera Feeds
 
         self.camera_feeds: Sequence[VideoFrame] = []
@@ -96,7 +97,7 @@ class DataInterface(QObject):
         # Video Receiver Threads
         for i in range(self.camera_feed_count):
             self.camera_feeds.append(VideoFrame())
-            cam_thread = QSockStreamRecv(self.app, ROV_IP, 52524 - i,
+            cam_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52524 - i,
                                          buffer_size=65536,
                                          protocol="udp")
             # Connect signals
@@ -106,29 +107,24 @@ class DataInterface(QObject):
             cam_thread.start()
 
         # ROV Data Thread
-        self.rov_data_thread = QSockStreamRecv(self.app, ROV_IP, 52525)
+        self.rov_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52525)
         self.rov_data_thread.on_recv.connect(self.on_rov_data_sock_recv)
         self.rov_data_thread.start()
 
         # ROV Float Thread
-        self.float_data_thread = QSockStreamRecv(self.app, ROV_IP, 52625)
+        self.float_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52625)
         self.float_data_thread.on_recv.connect(self.on_float_data_sock_recv)
         self.float_data_thread.start()
 
-        # STDOUT UI Thread
-        # This thread processes redirected stdout to be displayed in the UI and in console
-        self.stdout_ui_thread = Thread(target=self.f_stdout_ui_thread)
-        self.stdout_ui_thread.start()
-
         # STDOUT Socket Thread
         # This thread processes stdout that has been received across a socket
-        self.stdout_sock_thread = QSockStreamRecv(self.app, ROV_IP, 52535)
+        self.stdout_sock_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52535)
         self.stdout_sock_thread.on_recv.connect(self.on_stdout_sock_recv)
         self.stdout_sock_thread.start()
 
         # Controller Input Thread
         # Collects and sends input to the ROV
-        self.controller_input_thread = SockStreamSend(self.app, ROV_IP, 52526, 0.01,
+        self.controller_input_thread = SockStreamSend(self.app, self.app.ROV_IP, 52526, 0.01,
                                                       self.get_controller_input)
         self.controller_input_thread.start()
 

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPush
 
 from PyQt6.QtCore import QRect, QTimer, QThread
 
-from datainterface.data_interface import DataInterface, StdoutType, ROV_IP
+from datainterface.data_interface import DataInterface, StdoutType
 from datainterface.action_enum import ActionEnum
 from datainterface.sock_stream_send import SockSend
 from datainterface.video_display import VideoDisplay
@@ -245,6 +245,9 @@ class Copilot(Window):
         self.recalibrate_imu_action.setChecked(False)
 
     def on_rov_power(self) -> None:
+        if not self.app.local_test:
+            print("For now, this is your job...")
+            return
         if self.app.rov_data_source_proc is None:
             self.rov_power_action.setChecked(False)
             if os.name == "nt":
@@ -262,7 +265,7 @@ class Copilot(Window):
         if self.data.is_rov_connected():
             depth = self.data.depth
             checked = self.maintain_depth_action.isChecked()
-            SockSend(self.app, ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH, checked, depth))
+            SockSend(self.app, self.app.ROV_IP, 52527, (ActionEnum.MAINTAIN_ROV_DEPTH, checked, depth))
 
             if checked:
                 self.maintain_depth_action.setText(f"Maintaining Depth ({depth:.{self.v_dp}f} m)")
@@ -273,7 +276,7 @@ class Copilot(Window):
     def reinitialise_cameras(self) -> None:
         # Check cameras aren't already being initialised
         if self.data.is_rov_connected():
-            SockSend(self.app, ROV_IP, 52527, ActionEnum.REINIT_CAMS)
+            SockSend(self.app, self.app.ROV_IP, 52527, ActionEnum.REINIT_CAMS)
         self.reinitialise_cameras_action.setChecked(False)
 
     def disable_alerts(self) -> None:
