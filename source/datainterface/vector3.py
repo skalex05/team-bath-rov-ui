@@ -1,7 +1,6 @@
 class Vector3:
     # Just for temporarily representing vector information.
     # Might add more to this later
-    # Could also use
     def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y

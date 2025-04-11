@@ -24,11 +24,18 @@ class App(QApplication):
     """
     task_checked = pyqtSignal(QWidget)
 
-    def __init__(self, redirect_stdout: Union[StringIO, TextIOWrapper],
-                 redirect_stderr: Union[StringIO, TextIOWrapper], argv, local_test=True, rov_ip="localhost", float_ip="localhost"):
+    def __init__(self,
+                 redirect_stdout: Union[StringIO, TextIOWrapper],
+                 redirect_stderr: Union[StringIO, TextIOWrapper],
+                 argv,
+                 local_test=True,
+                 use_new_camera_system=True,
+                 rov_ip="localhost",
+                 float_ip="localhost"):
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
+        self.use_new_camera_system = use_new_camera_system
         self.local_test = local_test
         if local_test:
             self.UI_IP = "localhost"
@@ -43,7 +50,6 @@ class App(QApplication):
         self.closing = False
 
         # TEMPORARY FOR PROCESS SIMULATION
-        self.rov_data_source_proc = None
         self.float_data_source_proc = None
 
         # Create the list of tasks the ROV should complete
@@ -171,13 +177,6 @@ class App(QApplication):
         self.closing = True
         print("Closing", file=sys.__stdout__, flush=True)
         # Close dummy processes
-        if self.rov_data_source_proc:
-            print("Attempting to close ROV data source", file=sys.__stdout__, flush=True)
-            try:
-                self.rov_data_source_proc.terminate()
-                print("Killed ROV data source", file=sys.__stdout__, flush=True)
-            except Exception as e:
-                print("Couldn't kill ROV data source - ", e, file=sys.__stdout__, flush=True)
         if self.float_data_source_proc:
             print("Attempting to close Float data source", file=sys.__stdout__, flush=True)
             try:

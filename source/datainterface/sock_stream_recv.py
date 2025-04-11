@@ -3,7 +3,7 @@ import sys
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, IPPROTO_TCP, TCP_NODELAY, SOCK_DGRAM
 import time
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import TYPE_CHECKING, Callable, Literal, Union
 
 # HEADER CONTENTS = (Message Size, Time Sent, Send Sleep)
 HEADER_FORMAT = "Qdf"
@@ -11,10 +11,11 @@ HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
 if TYPE_CHECKING:
     from app import App
+    from rov_interface import ROVInterface
 
 
 class SockStreamRecv(threading.Thread):
-    def __init__(self, app: "App", addr: str, port: int,
+    def __init__(self, app: Union["App", "ROVInterface"], addr: str, port: int,
                  on_recv: Callable, on_connect: Callable = None, on_disconnect: Callable = None,
                  buffer_size: int = 1024, protocol: Literal["tcp", "udp"] = "tcp", timeout: float = 0.5):
         protocol = protocol.lower()
@@ -48,7 +49,7 @@ class SockStreamRecv(threading.Thread):
         data_server.bind((self.addr, self.port))
         data_server.setblocking(False)
         last_msg = time.time()
-        while self.app is None or not self.app.closing:
+        while not self.app.closing:
             time.sleep(0)  # Temporarily relinquish thread from CPU
             try:
                 try:
@@ -94,7 +95,7 @@ class SockStreamRecv(threading.Thread):
         data_server.bind((self.addr, self.port))
         data_server.settimeout(self.timeout)
 
-        while self.app is None or not self.app.closing:
+        while not self.app.closing:
             time.sleep(0)  # Temporarily relinquish thread from CPU
             try:
                 data_server.listen()
@@ -109,7 +110,7 @@ class SockStreamRecv(threading.Thread):
             incoming_bytes = b""
             msg_size = 0
             try:
-                while self.app is None or not self.app.closing:
+                while not self.app.closing:
                     time.sleep(0)
                     incoming_bytes += conn.recv(self.buffer_size)
                     # Connection has most likely failed if we are not receiving any bytes

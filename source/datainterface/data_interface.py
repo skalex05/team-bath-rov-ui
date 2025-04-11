@@ -5,6 +5,7 @@ from threading import Thread
 
 import cv2
 
+from datainterface.video_recv import VideoRecv
 from qt_sock_stream_recv import QSockStreamRecv
 from sock_stream_send import SockStreamSend
 from typing import TYPE_CHECKING, Sequence
@@ -19,11 +20,12 @@ from rov_data import ROVData
 from vector3 import Vector3
 from video_frame import VideoFrame
 from stdout_type import StdoutType
+from numpy import ndarray
 
 if TYPE_CHECKING:
     from window import Window
     from app import App
-    from numpy import ndarray
+
 
 class DataInterface(QObject):
     rov_data_update = pyqtSignal()
@@ -97,11 +99,17 @@ class DataInterface(QObject):
         # Video Receiver Threads
         for i in range(self.camera_feed_count):
             self.camera_feeds.append(VideoFrame())
-            cam_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52524 - i,
-                                         buffer_size=65536,
-                                         protocol="udp")
+            if self.app.use_new_camera_system:
+                cam_thread = VideoRecv(self.app, [self.app.ROV_IP, "127.0.0.1"][self.app.ROV_IP == "localhost"], 52524 - i)
+            else:
+                cam_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52524 - i,
+                                             buffer_size=65536,
+                                             protocol="udp")
             # Connect signals
-            cam_thread.on_recv.connect(lambda payload_bytes, j=i: self.on_video_stream_sock_recv(payload_bytes, j))
+            if self.app.use_new_camera_system:
+                cam_thread.on_recv.connect(lambda payload, j=i: self.on_video_stream_sock_recv(payload, j))
+            else:
+                cam_thread.on_recv.connect(lambda payload_bytes, j=i: self.on_video_stream_sock_recv(pickle.loads(payload_bytes), j))
             cam_thread.on_disconnect.connect(lambda j=i: self.on_camera_feed_disconnect(j))
             self.camera_threads.append(cam_thread)
             cam_thread.start()
@@ -189,15 +197,17 @@ class DataInterface(QObject):
             self.float_depth_alert_once = True
             self.float_depth_alert.emit()
 
-    def on_video_stream_sock_recv(self, payload: bytes, i: int) -> None:
+    def on_video_stream_sock_recv(self, payload: ndarray, i: int) -> None:
         # Process the raw video bytes received
-        encoded: ndarray = pickle.loads(payload)
-        if encoded is None:
+        if payload is None:
             self.on_camera_feed_disconnect(i)
             return
 
-        # Decode the frame back into a numpy pixel array
-        frame = cv2.imdecode(encoded, 1)
+        if self.app.use_new_camera_system:
+            frame = payload
+        else:
+            # Decode the frame back into a numpy pixel array
+            frame = cv2.imdecode(payload, 1)
         h, w, _ = frame.shape
 
         # Generate the new QImage for the feed
