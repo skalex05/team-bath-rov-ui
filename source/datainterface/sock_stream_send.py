@@ -3,7 +3,7 @@ import struct
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
-from typing import TYPE_CHECKING, Literal, Optional, Any
+from typing import TYPE_CHECKING, Literal, Optional, Any, Union
 from collections.abc import Callable
 
 # HEADER CONTENTS = (Message Size, Time Sent, Send Sleep)
@@ -11,11 +11,12 @@ HEADER_FORMAT = "Qdf"
 
 if TYPE_CHECKING:
     from app import App
+    from rov_interface import ROVInterface
 
 
 # Use to send a continuous stream of data
 class SockStreamSend(threading.Thread):
-    def __init__(self, app: Optional["App"], addr: str, port: int, sleep: float,
+    def __init__(self, app: Union["App", "ROVInterface"], addr: str, port: int, sleep: float,
                  get_data: Callable[[], bytes],
                  on_connect: Callable[[], None] = None, on_disconnect: Callable[[], None] = None,
                  protocol: Literal["tcp", "udp"] = "tcp", timeout: float = 0.5):
@@ -46,7 +47,7 @@ class SockStreamSend(threading.Thread):
         data_client.settimeout(self.timeout)
 
         print_conn_err = True
-        while self.app is None or not self.app.closing:
+        while not self.app.closing:
             time.sleep(0)
             try:
                 try:
@@ -73,10 +74,7 @@ class SockStreamSend(threading.Thread):
 
             except (ConnectionError, TimeoutError, OSError) as e:
                 if type(e) == OSError and print_conn_err:
-                    if self.app:
-                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
-                    else:
-                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
+                    print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
                     print_conn_err = False
 
                 if self.connected and self.on_disconnect is not None:
@@ -89,7 +87,7 @@ class SockStreamSend(threading.Thread):
 
     def run_tcp(self) -> None:
         print_conn_err = True
-        while self.app is None or not self.app.closing:
+        while not self.app.closing:
             time.sleep(0)  # Relinquish thread from CPU
             # Try and connect to server (Non-blocking)
             try:
@@ -104,16 +102,13 @@ class SockStreamSend(threading.Thread):
                 continue
             except OSError:
                 if print_conn_err:
-                    if self.app:
-                        print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
-                    else:
-                        print(f"Cannot connect on {self.addr}:{self.port}")
+                    print(f"Cannot connect on {self.addr}:{self.port}", file=self.app.redirect_stderr)
                     print_conn_err = False
                 continue
 
             try:
                 last_send = time.time()
-                while self.app is None or not self.app.closing:
+                while not self.app.closing:
                     time.sleep(0)
                     d = (time.time() - last_send)
                     if d < self.sleep:
@@ -125,10 +120,7 @@ class SockStreamSend(threading.Thread):
                         if data is None:
                             continue
                     except Exception as e:
-                        if self.app:
-                            print(e, file=self.app.redirect_stderr)
-                        else:
-                            print(e)
+                        print(e, file=self.app.redirect_stderr)
                         continue
 
                     # Attach the header containing the size of payload
@@ -149,13 +141,13 @@ class SockStreamSend(threading.Thread):
 # Used to send a single message to a SockStreamRecv
 # Note! This function is blocking! Do not use in main-threads!
 # (Blocking won't be really noticed unless connection to socket fails)
-def SockSend(app: Optional["App"], addr: str, port: int, msg: Any, max_retries: int = 5) -> None:
+def SockSend(app: Union["App", "ROVInterface"], addr: str, port: int, msg: Any, max_retries: int = 5) -> None:
     bytes_to_send = pickle.dumps(msg)
     # Attach the header containing the size of payload
     header = struct.pack(HEADER_FORMAT, len(bytes_to_send), time.time(), -1)
     payload = header + bytes_to_send
     retries = 0
-    while app is None or not app.closing and (max_retries < 1 or retries < max_retries):
+    while not app.closing and (retries < max_retries):
         # Try and connect to server (Non-blocking)
         try:
             data_client = socket(AF_INET, SOCK_STREAM)

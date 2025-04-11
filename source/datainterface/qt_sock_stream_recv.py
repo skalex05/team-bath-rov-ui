@@ -1,6 +1,7 @@
 from typing import Literal, TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from numpy import ndarray
 
 from datainterface.sock_stream_recv import SockStreamRecv
 

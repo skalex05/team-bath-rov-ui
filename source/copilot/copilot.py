@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPushButton, QProgressBar, QScrollArea, \
     QMessageBox
@@ -86,11 +87,14 @@ class Copilot(Window):
 
         # Actions
 
+        self.connection_debounce = False
+
         self.recalibrate_imu_action: QRadioButton = self.findChild(QRadioButton, "RecalibrateIMUAction")
         self.recalibrate_imu_action.clicked.connect(self.recalibrate_imu)
 
         self.rov_power_action: QRadioButton = self.findChild(QRadioButton, "ROVPowerAction")
         self.rov_power_action.clicked.connect(self.on_rov_power)
+        self.con_timer = None
 
         self.maintain_depth_action: QRadioButton = self.findChild(QRadioButton, "MaintainDepthAction")
         self.maintain_depth_action.clicked.connect(self.maintain_depth)
@@ -245,21 +249,36 @@ class Copilot(Window):
         self.recalibrate_imu_action.setChecked(False)
 
     def on_rov_power(self) -> None:
-        if not self.app.local_test:
-            print("For now, this is your job...")
+        def on_timeout(msg, con=True):
+            if self.data.is_rov_connected() == con:
+                return
+            print(msg, file=sys.stderr)
+            self.connection_debounce = False
+            self.con_timer.stop()
+
+        if self.connection_debounce:
             return
-        if self.app.rov_data_source_proc is None:
+        if not self.data.is_rov_connected():
             self.rov_power_action.setChecked(False)
+            self.connection_debounce = True
+            self.con_timer = QTimer()
+            self.con_timer.timeout.connect(lambda: on_timeout("Couldn't connect to ROV"))
+            self.con_timer.start(5000)
+
             if os.name == "nt":
                 ex = "python.exe"
             else:
                 ex = "python3"
-            self.app.rov_data_source_proc = subprocess.Popen([ex, "datainterface//rov_dummy.py"])
+            subprocess.Popen([ex, "datainterface//rov_interface.py"])
         else:
-            self.app.rov_data_source_proc.terminate()
-            self.app.rov_data_source_proc = None
-
+            self.rov_power_action.setChecked(True)
+            self.connection_debounce = True
+            self.con_timer = QTimer()
+            self.con_timer.timeout.connect(lambda: on_timeout("Couldn't power off the ROV", con=False))
+            self.con_timer.start(5000)
             print("Power Off!")
+            SockSend(self.app, self.app.ROV_IP, 52527, ActionEnum.POWER_OFF_ROV)
+
 
     def maintain_depth(self) -> None:
         if self.data.is_rov_connected():
@@ -298,7 +317,7 @@ class Copilot(Window):
             self.data.float_depth_alert_once = False
             self.all_alerts_disabled = False
             self.all_alerts_disabled = False
-            print("Alerts renabled")
+            print("Alerts re-enabled")
 
     def connect_float(self) -> None:
         if self.app.float_data_source_proc is None:
@@ -366,9 +385,11 @@ class Copilot(Window):
 
     def on_rov_connect(self) -> None:
         self.rov_power_action.setChecked(True)
+        self.connection_debounce = False
 
     def on_rov_disconnect(self) -> None:
         self.rov_power_action.setChecked(False)
+        self.connection_debounce = False
         for label in [self.rov_attitude_value, self.rov_angular_accel_value, self.rov_angular_velocity_value,
                       self.rov_acceleration_value, self.rov_velocity_value, self.rov_depth_value,
                       self.ambient_pressure_value, self.ambient_water_temp_value, self.internal_temp_value,
