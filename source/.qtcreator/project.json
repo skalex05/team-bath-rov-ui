@@ -2,5 +2,14 @@
     "$schema": "https://download.qt.io/official_releases/qtcreator/latest/installer_source/jsonschemas/project.json",
     "files.exclude": [
         ".qtcreator/project.json.user"
-    ]
+    ],
+    "options": {
+        "addModules": [
+          "core",
+          "gui",
+          "widgets",
+          "multimedia",
+          "multimediawidgets"
+        ]
+      }
 }
