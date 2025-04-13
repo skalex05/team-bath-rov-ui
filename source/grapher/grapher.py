@@ -1,85 +1,92 @@
 import os
 import sys
 import shutil
+import time
 
 import cv2
-from PyQt6.QtCore import QThreadPool, QTimer
+from PyQt6.QtCore import QThreadPool, QTimer, QRect, QUrl, QFileInfo, Qt, QSizeF
+from PyQt6.QtMultimediaWidgets import QVideoWidget, QGraphicsVideoItem
 
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox, QLabel
-from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication, QVBoxLayout, QPushButton, QLineEdit, QMessageBox, QLabel, QTabWidget, \
+    QFileDialog, QProgressBar, QTableWidget, QTableWidgetItem, QFrame, QLayout, QGraphicsView, QGraphicsScene
+from PyQt6.QtGui import QIcon, QPainter, QPen
+from PyQt6.QtMultimedia import QMediaPlayer
 
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from grapher.graphGenerator import GraphGenerator
 
 from graphing_task import GraphingTask
 from grapher.eDNASampler import eDNASampler
+from nav_bar.nav_bar import NavBar
 
 from window import Window
 
-from functools import partial
-
 path_dir = os.path.dirname(os.path.realpath(__file__))
-
-generating_model = False
-
-
-def model_migration(start_year: int, end_year: int, migration_years: list[int], input_images: list[str],
-                    year_display_positions: list[tuple[int, int]]):
-    global generating_model
-    if generating_model:
-        return
-    generating_model = True
-    assert len(migration_years) == 5 and len(input_images) == 6 and len(year_display_positions) == 6
-
-    # Remove Frames folder and contents
-
-    if os.path.exists("Frames"):
-        shutil.rmtree("Frames")
-    if not os.path.exists("Frames"):
-        os.mkdir("Frames")
-    else:
-        raise OSError("Failed to remove Frames folder")
-    if not os.path.exists("Frames"):
-        raise OSError("Failed to recreate Frames folder")
-
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 1.5
-    color = (0, 0, 255)
-    thickness = 5
-
-    # Generate Frames
-
-    current_migration = 0
-    for i, year in enumerate(range(start_year, end_year + 1)):
-        # Progress carp migration until end
-        while current_migration < 5 and migration_years[current_migration] is not None and year >= migration_years[
-            current_migration]:
-            current_migration += 1
-
-        frame = cv2.imread(input_images[current_migration])
-        if frame is None:
-            raise ValueError(f"Could not read file: {input_images[current_migration]}")
-
-        cv2.putText(frame, str(year), year_display_positions[current_migration], font, font_scale, color, thickness,
-                    cv2.LINE_AA)
-
-        cv2.imwrite(f"Frames\\{i:04}.jpg", frame)
-
-    # Create Video
-
-    os.system(f"ffmpeg -y -framerate 1 -i Frames\\%4d.jpg migration.mp4 -start_number 0 -vf format=yuv420")
-
-    generating_model = False
 
 
 class Grapher(Window):
-    def __init__(self, *args):
-        super().__init__(os.path.join(path_dir, "grapher.ui"), *args)
 
+    def __init__(self, *args):
+        super().__init__(os.path.join(path_dir, "grapher_new.ui"), *args)
+
+        # General Attributes
+        self.tab_widget: QTabWidget = self.findChild(QTabWidget, "TabWidget")
+
+        # Graph Creator Attributes
         self.graph_generator = GraphGenerator()  # From graphGenerator.py
         self.toolbar = None
+        self.generating_model = False
 
-        self.eDNA_results: QLabel = self.findChild(QLabel, "eDNA_results")
+        # eDNA Attributes
+        self.eDNA_database = None
+        self.unknown_sample_folder = None
+
+        self.eDNAResults: QTableWidget = self.findChild(QTableWidget, "eDNAResults")
+
+        self.eDNAButton: QPushButton = self.findChild(QPushButton, "eDNAButton")
+        self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
+
+        self.eDNADatabaseSelect: QPushButton = self.findChild(QPushButton, "eDNADatabaseSelect")
+        self.eDNADatabaseSelect.clicked.connect(
+            lambda: self.select_eDNA_path("eDNA_database", "eDNADatabasePath", "Choose A Folder of Known eDNA Samples"))
+
+        self.eDNADatabasePath = self.findChild(QLabel, "eDNADatabasePath")
+
+        self.UnknownSampleFolderSelect = self.findChild(QPushButton, "UnknownSampleFolderSelect")
+        self.UnknownSampleFolderSelect.clicked.connect(
+            lambda: self.select_eDNA_path("unknown_sample_folder", "UnknownSampleFolderPath",
+                                          "Choose A Folder of Unknown eDNA Samples"))
+
+        self.UnknownSampleFolderPath = self.findChild(QLabel, "UnknownSampleFolderPath")
+
+        self.eDNAProgressBar: QProgressBar = self.findChild(QProgressBar, "eDNAProgress")
+
+        self.eDNA_sampler = eDNASampler()
+        self.eDNA_sampler.progress_update.connect(lambda pi: self.eDNAProgressBar.setValue(pi))
+
+        # Migration Attributes
+        self.area1 = self.findChild(QLineEdit, "Area1Year")
+        self.area2 = self.findChild(QLineEdit, "Area2Year")
+        self.area3 = self.findChild(QLineEdit, "Area3Year")
+        self.area4 = self.findChild(QLineEdit, "Area4Year")
+        self.area5 = self.findChild(QLineEdit, "Area5Year")
+
+        self.MigrationModelButton = self.findChild(QPushButton, "MigrationModelButton")
+        self.MigrationModelButton.clicked.connect(self.on_generate_model_clicked)
+
+        self.VideoContainer: QGraphicsView = self.findChild(QGraphicsView, "VideoContainer")
+        self.VideoContainer.mousePressEvent = lambda event: self.play_migration_video()
+
+        self.migration_media_player = QMediaPlayer()
+        self.migration_video_item = QGraphicsVideoItem()
+        self.migration_media_player.setVideoOutput(self.migration_video_item)
+
+        scene = QGraphicsScene()
+        scene.addItem(self.migration_video_item)
+
+        self.VideoContainer.setScene(scene)
+
+        return
 
         if self.graphArea.layout() is None:  # Making sure graph area has layout
             self.graphArea.setLayout(QVBoxLayout())
@@ -97,9 +104,6 @@ class Grapher(Window):
         self.accelerationDropdownButton = self.findChild(QPushButton, "accelerationDropdownButton")
         self.accelerationDropdownButton.clicked.connect(self.on_acceleration_dropdown_clicked)
 
-        self.MigrationModelButton = self.findChild(QPushButton, "MigrationModelButton")
-        self.MigrationModelButton.clicked.connect(self.on_generate_model_clicked)
-
         self.velocityButton = self.findChild(QPushButton, "velocityButton")
         self.velocityButton.clicked.connect(self.on_velocity_clicked)
 
@@ -109,14 +113,67 @@ class Grapher(Window):
         self.depthButton = self.findChild(QPushButton, "depthButton")
         self.depthButton.clicked.connect(self.on_depth_clicked)
 
-        self.eDNAButton = self.findChild(QPushButton, "eDNAButton")
-        self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
+    def attach_nav_bar(self, dock) -> None:
+        tab_bar = self.tab_widget.tabBar()
+        width = 0
+        for i in range(tab_bar.count()):
+            width += tab_bar.tabRect(i).width()
+        self.nav = NavBar(self, dock, nav_bar_right_offset=width)
+        self.nav.generate_layout()
 
-        self.area1 = self.findChild(QLineEdit, "Area1Year")
-        self.area2 = self.findChild(QLineEdit, "Area2Year")
-        self.area3 = self.findChild(QLineEdit, "Area3Year")
-        self.area4 = self.findChild(QLineEdit, "Area4Year")
-        self.area5 = self.findChild(QLineEdit, "Area5Year")
+    def model_migration(self, start_year: int, end_year: int, migration_years: list[int], input_images: list[str],
+                        year_display_positions: list[tuple[int, int]]):
+        self.migration_media_player.stop()
+        if self.generating_model:
+            return
+        self.generating_model = True
+        assert len(migration_years) == 5 and len(input_images) == 6 and len(year_display_positions) == 6
+
+        # Remove Frames folder and contents
+
+        if os.path.exists("Frames"):
+            shutil.rmtree("Frames")
+        if not os.path.exists("Frames"):
+            os.mkdir("Frames")
+        else:
+            raise OSError("Failed to remove Frames folder")
+        if not os.path.exists("Frames"):
+            raise OSError("Failed to recreate Frames folder")
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1.5
+        color = (0, 0, 255)
+        thickness = 5
+
+        # Generate Frames
+
+        current_migration = 0
+        for i, year in enumerate(range(start_year, end_year + 1)):
+            # Progress carp migration until end
+            while current_migration < 5 and migration_years[current_migration] is not None and year >= migration_years[
+                current_migration]:
+                current_migration += 1
+
+            frame = cv2.imread(input_images[current_migration])
+            if frame is None:
+                raise ValueError(f"Could not read file: {input_images[current_migration]}")
+
+            cv2.putText(frame, str(year), year_display_positions[current_migration], font, font_scale, color, thickness,
+                        cv2.LINE_AA)
+
+            cv2.imwrite(f"Frames\\{i:04}.jpg", frame)
+
+        # Create Video
+        print("Creating video", file=sys.__stdout__, flush=True)
+        os.system(f"ffmpeg -y -framerate 1 -i Frames\\%4d.jpg migration.mp4 -start_number 0 -vf format=yuv420")
+
+        self.generating_model = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.migration_video_item.setSize(QSizeF(self.VideoContainer.width(), self.VideoContainer.height()))
+        self.VideoContainer.scene().setSceneRect(self.migration_video_item.boundingRect())
+        self.VideoContainer.fitInView(self.migration_video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def on_generate_model_clicked(self):
         start_year = 2016
@@ -136,37 +193,44 @@ class Grapher(Window):
                 return
             sanitised_years.append(v)
 
-        def clear(out):
-            self.area1.setText("")
-            self.area2.setText("")
-            self.area3.setText("")
-            self.area4.setText("")
-            self.area5.setText("")
-
-        task = GraphingTask(lambda: model_migration(start_year, end_year,
-                                                    sanitised_years,
-                                                    [
-                                                        r"Migration Images\Area0.png",
-                                                        r"Migration Images\Area1.png",
-                                                        r"Migration Images\Area2.png",
-                                                        r"Migration Images\Area3.png",
-                                                        r"Migration Images\Area4.png",
-                                                        r"Migration Images\Area5.png",
-                                                    ],
-                                                    [
-                                                        (70, 830),
-                                                        (240, 620),
-                                                        (340, 450),
-                                                        (440, 380),
-                                                        (650, 280),
-                                                        (750, 180),
-                                                    ]),
-                            clear)
+        task = GraphingTask(lambda: self.model_migration(start_year, end_year,
+                                                         sanitised_years,
+                                                         [
+                                                             r"Migration Images\Area0.png",
+                                                             r"Migration Images\Area1.png",
+                                                             r"Migration Images\Area2.png",
+                                                             r"Migration Images\Area3.png",
+                                                             r"Migration Images\Area4.png",
+                                                             r"Migration Images\Area5.png",
+                                                         ],
+                                                         [
+                                                             (70, 830),
+                                                             (240, 620),
+                                                             (340, 450),
+                                                             (440, 380),
+                                                             (650, 280),
+                                                             (750, 180),
+                                                         ]),
+                            self.play_migration_video)
 
         QThreadPool.globalInstance().start(task)
 
-        if hasattr(self, "eDNAButton"):
-            self.eDNAButton.clicked.connect(self.on_eDNA_clicked)
+    def play_migration_video(self, callback_in=None):
+        print("playing video", file=sys.__stdout__, flush=True)
+        video = QUrl.fromLocalFile(f"{os.getcwd()}\\migration.mp4")
+
+        self.migration_media_player.stop()
+        self.migration_media_player.setSource(QUrl())
+
+        self.migration_media_player.setSource(video)
+        self.migration_media_player.setLoops(QMediaPlayer.Loops.Infinite)
+
+        self.migration_video_item.setSize(QSizeF(self.VideoContainer.width(), self.VideoContainer.height()))
+        self.VideoContainer.scene().setSceneRect(self.migration_video_item.boundingRect())
+        self.VideoContainer.fitInView(self.migration_video_item, Qt.AspectRatioMode.KeepAspectRatio)
+
+        self.migration_media_player.play()
+
 
     def on_velocity_dropdown_clicked(self):
         '''Toggle visibility of velocity checkboxes when vel button pressed'''
@@ -256,35 +320,28 @@ class Grapher(Window):
             traceback.print_exc()
 
     def on_eDNA_clicked(self):
+        if self.unknown_sample_folder is None or self.eDNA_database is None:
+            QMessageBox.warning(self, "Error", f"Please set Unknown Sample and Species Database Folders")
+            return
         try:
-            self.eDNA_results.setText("Loading...")
-
-            self.elapsed_time = 0
-
-            if hasattr(self, "loading_timer") and self.loading_timer.isActive():
-                self.loading_timer.stop()
-
-            self.loading_timer = QTimer(self)
-            self.loading_timer.timeout.connect(self.update_loading_text)
-            self.loading_timer.start(1000)
-
-            def task_function():
-                sampler = eDNASampler()
-                return sampler.generate_results()
-
             def on_task_complete(results):
-                self.loading_timer.stop()
-                self.eDNA_results.setText('\n'.join(results))
+                for row, (sample_no, score, classification) in enumerate(results):
+                    self.eDNAResults.setItem(row, 0, QTableWidgetItem(str(sample_no)))
+                    self.eDNAResults.setItem(row, 1, QTableWidgetItem(str(int(score))))
+                    self.eDNAResults.setItem(row, 2, QTableWidgetItem(classification))
 
-            task = GraphingTask(task_function, on_task_complete)
+            task = GraphingTask(lambda: self.eDNA_sampler.generate_results(self.unknown_sample_folder, self.eDNA_database), on_task_complete)
             QThreadPool.globalInstance().start(task)
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Error in eDNA sampling: {str(e)}")
 
-    def update_loading_text(self):
-        self.elapsed_time += 1
-        self.eDNA_results.setText(f"Loading... ({self.elapsed_time}s)")
+    def select_eDNA_path(self, dest_attribute: str, dest_label: str, caption: str):
+        folder_path = QFileDialog.getExistingDirectory(self, caption)
+
+        if folder_path:
+            setattr(self, dest_attribute, folder_path)
+            getattr(self, dest_label).setText(str(folder_path))
 
     def update_button_icon(self, button_name, image_path):
         button = getattr(self, button_name, None)

@@ -2,7 +2,8 @@ import math
 import time
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QRect, QPoint
+from PyQt6.QtCore import QRect, QPoint, Qt
+from PyQt6.QtGui import QPalette, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLayout, QPushButton
 
 from dock import Dock
@@ -18,8 +19,9 @@ class NavBar(QWidget):
         Allows windows to be docked/undocked/closed/dragged as well as for switching view from within a dock.
     """
 
-    def __init__(self, parent_window: "Window", dock: Dock, widget_width: int = 80):
+    def __init__(self, parent_window: "Window", dock: Dock, widget_width: int = 80, nav_bar_right_offset=0):
         super().__init__(parent_window)
+        self.layout = None
         self.close_button_widget: QPushButton | None = None
         self.minimise_widget: QPushButton | None = None
         self.buttons: QWidget | None = None
@@ -27,16 +29,23 @@ class NavBar(QWidget):
         self.docked = True  # Check if the parent window of this nav bar is docked/undocked
         self.dock = dock  # A reference to the dock window object
         self.app = parent_window.app
+        self.nav_bar_right_offset = nav_bar_right_offset
 
         self.parent_window = parent_window
         self.top_window = dock
 
         self.widget_width = widget_width
+
+    def generate_layout(self) -> None:
+        # Adjust size of the navbar depending on how many buttons are in the layout.
+        self.setGeometry(
+            QRect(self.nav_bar_right_offset, 0, self.parent_window.geometry().width() - self.nav_bar_right_offset,
+                  self.geometry().height()))
+
         self.layout = QHBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
-    def generate_layout(self) -> None:
         if self.dock is None:
             return
         single = True
@@ -76,18 +85,15 @@ class NavBar(QWidget):
         self.layout.addWidget(self.close_button_widget)
 
         self.buttons = QWidget(self)
-        x_offset = self.parent_window.width() - self.widget_width * self.layout.count()
+        x_offset = self.rect().width() - self.widget_width * self.layout.count()
         self.buttons.setGeometry(QRect(x_offset, 0, self.widget_width * self.layout.count(), self.geometry().height()))
 
         self.buttons.setLayout(self.layout)
 
-        # Adjust size of the navbar depending on how many buttons are in the layout.
-        self.setGeometry(QRect(0, 0, self.parent_window.geometry().width(), self.geometry().height()))
-
         self.buttons.show()
 
     def clear_layout(self, layout: QLayout = None) -> None:
-        # Remove all windows in the  layout
+        # Remove all windows in the layout
         if layout is None:
             layout = self.layout
         while layout.count() > 0:

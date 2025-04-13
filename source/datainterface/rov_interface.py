@@ -49,7 +49,7 @@ class ROVInterface:
 
         self.print_to_ui("Powering On...")
 
-        data_thread = SockStreamSend(self, "localhost", 52525, 0.05, self.get_rov_data, None)
+        data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
         data_thread.start()
 
         self.video_streams = None
@@ -63,7 +63,7 @@ class ROVInterface:
                                       kwargs={"addr": "127.0.0.1" if self.local_test else self.ROV_IP,
                                               "port": 52524 - i, "i": i})
             else:
-                video_thread = SockStreamSend(self, "localhost", 52524 - i, 0.0333,
+                video_thread = SockStreamSend(self, "localhost" if self.local_test else self.UI_IP, 52524 - i, 0.0333,
                                               self.video_streams[i].get_camera_frame, None, protocol="udp")
             video_thread.start()
 
@@ -73,11 +73,11 @@ class ROVInterface:
         if not self.use_new_camera_system:
             self.print_to_ui("ROV is using old camera system", error=True)
 
-        input_thread = SockStreamRecv(self, "localhost", 52526, self.controller_input_recv,
+        input_thread = SockStreamRecv(self, self.ROV_IP, 52526, self.controller_input_recv,
                                       lambda: self.print_to_ui("Controller Disconnected From ROV", True))
         input_thread.start()
 
-        action_thread = SockStreamRecv(self, "localhost", 52527, self.action_recv)
+        action_thread = SockStreamRecv(self, self.ROV_IP, 52527, self.action_recv)
         action_thread.start()
 
         self.print_to_ui("Powered On!")
@@ -87,7 +87,7 @@ class ROVInterface:
             payload = (StdoutType.ROV_ERROR, msg)
         else:
             payload = (StdoutType.ROV, msg)
-        SockSend(self, "localhost", 52535, payload)
+        SockSend(self, self.UI_IP, 52535, payload)
 
     def get_rov_data(self) -> bytes:
         self.rov_data.randomise()
@@ -118,18 +118,18 @@ class ROVInterface:
             self.rov_data.depth = self.hold_depth
         return pickle.dumps(self.rov_data)
 
-    def kill_video_processes(self):
-        for i, process in enumerate(self.video_processes):
-            if process is not None:
-                try:
-                    process = psutil.Process(process.pid)
-                    for child in process.children(recursive=True):
-                        child.terminate()
-                    process.terminate()
-                except psutil.NoSuchProcess:
-                    pass
+    def kill_video_process(self, i):
+        process = self.video_processes[i]
+        if process is not None:
+            try:
+                process = psutil.Process(process.pid)
+                for child in process.children(recursive=True):
+                    child.terminate()
+                process.terminate()
+            except psutil.NoSuchProcess:
+                pass
 
-            self.video_processes[i] = None
+        self.video_processes[i] = None
 
     def rov_stdout_thread(self) -> None:
         rov_msgs = ["Swimming"]
@@ -170,7 +170,8 @@ class ROVInterface:
             action, *args = action
         if action == ActionEnum.REINIT_CAMS:
             if self.use_new_camera_system:
-                self.kill_video_processes()
+                for i in range(self.camera_count):
+                    self.kill_video_process(i)
             else:
                 for stream in self.video_streams:
                     stream.start_init_camera_feed()
@@ -184,18 +185,19 @@ class ROVInterface:
         elif action == ActionEnum.POWER_OFF_ROV:
             self.print_to_ui("Turning Off...")
             self.closing = True
-            self.kill_video_processes()
+            for i in range(self.camera_count):
+                self.kill_video_process(i)
             exit()
 
     def video_send(self, addr: str, port: int, i: int) -> None:
         while not self.closing:
-            self.kill_video_processes()
+            self.kill_video_process(i)
             time.sleep(1)
             if self.local_test:
                 if os.name == "nt":
                     process = subprocess.Popen(
                         f'ffmpeg -fflags nobuffer -f dshow -i video="{camera_devices[i]}" '
-                        '-b:v 4M -preset ultrafast -tune zerolatency -g 30 '
+                        '-b:v 16M -preset ultrafast -tune zerolatency -g 30 '
                         f' -r 30 -s 1920x1080 -preset fast -f mpegts udp://{addr}:{port}', shell=True)
                     print(f'ffmpeg -fflags nobuffer -f dshow -i video="{camera_devices[i]}" '
                           '-b:v 4M -preset ultrafast -tune zerolatency -g 30 '
@@ -220,8 +222,5 @@ class ROVInterface:
                 pass
 
 
-ROVInterface(
-    ui_ip="192.168.0.33",
-    local_test=False
-)
+ROVInterface(camera_count=3)
 

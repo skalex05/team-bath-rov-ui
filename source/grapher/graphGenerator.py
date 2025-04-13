@@ -19,7 +19,7 @@ class GraphGenerator:
 
     def read_data(self, file_name="live_data.txt"):
         """Reads data from live_data.txt inside the grapher folder."""
-        project_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # Moves up one level, it was buggy before
+        project_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) #  Moves up one level, it was buggy before
 
         # Construct the correct path to the 'grapher' folder
         file_path = os.path.join(project_root, "grapher", file_name)
