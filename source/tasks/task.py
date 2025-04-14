@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class Task(QWidget):
     def __init__(self, app: "App", title: str, description: str, start_time: tuple = (0, 0)):
         super().__init__()
-        uic.loadUi(os.path.join("tasks", "task_widget.ui"), self)
+        uic.loadUi(os.path.join(os.getcwd(), "tasks", "task_widget.ui"), self)
 
         self.checkbox: QCheckBox = self.findChild(QCheckBox, "CheckBox")
         self.start_time_label: QLabel = self.findChild(QLabel, "StartTime")

@@ -1,3 +1,5 @@
+import sys
+
 import cv2
 import pytesseract
 from Bio.Align import PairwiseAligner
@@ -19,10 +21,15 @@ class eDNASampler(QWidget):
         self.aligner.extend_gap_score = -3
         self.results = []
 
-        self.tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        self.build_success = False
+
+        self.tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exeee"
         if not os.path.exists(self.tesseract_path):
-            raise FileNotFoundError("Tesseract-OCR not found. Update the path accordingly.")
+            print("Tesseract-OCR not found at C:\Program Files\Tesseract-OCR."
+                  " Update the path accordingly for the eDNA sampler to work.",file=sys.stderr)
+
         pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
+        self.build_success = True
 
     def read_sample(self, filename: str) -> str:
         print(f"Reading Sample: {filename}")
