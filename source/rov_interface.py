@@ -11,9 +11,9 @@ import psutil
 from data_classes.action_enum import ActionEnum
 from rov_float_data_structures.rov_data import ROVData
 from data_classes.stdout_type import StdoutType
-from video_stream import VideoStream
-from sock_stream_recv import SockStreamRecv
-from sock_stream_send import SockStreamSend, SockSend
+from datainterface.video_stream import VideoStream
+from datainterface.sock_stream_recv import SockStreamRecv
+from datainterface.sock_stream_send import SockStreamSend, SockSend
 
 if os.name == "nt":
     from pygrabber.dshow_graph import FilterGraph

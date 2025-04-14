@@ -12,11 +12,11 @@ Next, download [OCR-Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) fo
 
 Finally, run `main.py` from the command line or an IDE of your choosing. 
 
-**NOTE:** _`team-bath-rov-ui/source` must be your current working directory_ Otherwise, the program may fail to find certain files.
+**NOTE:** _`team-bath-rov-ui/source` must be your current working directory_. Otherwise, the program may fail to find certain files.
 
 ### ROV Installation
 
-To install the interface onto the ROV for bidirectional communication with the UI, please follow the [ROV Installation Guide](source//datainterface//ROV_INTERFACE_INSTALL.md).
+To install the interface onto the ROV for bidirectional communication with the UI, please follow the [ROV Installation Guide](source//ROV_INTERFACE_INSTALL.md).
 
 ## Code Standards
 
