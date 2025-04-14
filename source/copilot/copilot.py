@@ -269,7 +269,7 @@ class Copilot(Window):
                 ex = "python.exe"
             else:
                 ex = "python3"
-            subprocess.Popen([ex, "datainterface//rov_interface.py"])
+            subprocess.Popen([ex, "rov_interface.py"])
         else:
             self.rov_power_action.setChecked(True)
             self.connection_debounce = True

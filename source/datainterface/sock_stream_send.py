@@ -3,7 +3,7 @@ import struct
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
-from typing import TYPE_CHECKING, Literal, Optional, Any, Union
+from typing import TYPE_CHECKING, Literal, Any, Union
 from collections.abc import Callable
 
 # HEADER CONTENTS = (Message Size, Time Sent, Send Sleep)
