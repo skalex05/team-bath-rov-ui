@@ -1,4 +1,5 @@
 # This script creates a simulated version of the ROV that the UI can interact with
+import json
 import os
 import pickle
 import sys
@@ -36,7 +37,8 @@ class ROVInterface:
             self.UI_IP = ui_ip
 
         if self.UI_IP is None:
-            raise ValueError("Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to.")
+            raise ValueError(
+                "Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to.")
 
         self.rov_data = ROVData()
         self.i = 100  # temp variable
@@ -222,5 +224,10 @@ class ROVInterface:
                 pass
 
 
-ROVInterface(camera_count=3)
+try:
+    with open("rov_config.json", "r") as f:
+        config_file = json.load(f)
 
+    ROVInterface(**config_file)
+except FileNotFoundError:
+    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md", sys.stderr)
