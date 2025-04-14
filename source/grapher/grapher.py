@@ -67,6 +67,7 @@ class Grapher(Window):
 
         self.LiveGraph: QCheckBox = self.findChild(QCheckBox, "LiveGraph")
         self.LiveGraph.setEnabled(False)
+
         def live_graph_change(state):
             if state == Qt.CheckState.Checked:
                 self.InputRecordingContainer.hide()
@@ -100,10 +101,10 @@ class Grapher(Window):
         self.recording_timer.timeout.connect(self.record_fields)
         self.recordings_path = Path(os.getcwd()) / "Recordings"
 
-        self.on_recording_directory_changed()
-
         if not self.recordings_path.exists():
             os.mkdir(self.recordings_path)
+
+        self.on_recording_directory_changed()
 
         self.watcher = QFileSystemWatcher()
         self.watcher.addPath(str(self.recordings_path))
@@ -166,7 +167,10 @@ class Grapher(Window):
         self.eDNAProgressBar: QProgressBar = self.findChild(QProgressBar, "eDNAProgress")
 
         self.eDNA_sampler = eDNASampler()
-        self.eDNA_sampler.progress_update.connect(lambda pi: self.eDNAProgressBar.setValue(pi))
+        if not self.eDNA_sampler.build_success:
+            self.eDNA_sampler.progress_update.connect(lambda pi: self.eDNAProgressBar.setValue(pi))
+        else:
+            self.eDNAButton.setDisabled(True)
 
         # Migration Attributes
         self.area1 = self.findChild(QLineEdit, "Area1Year")
@@ -211,13 +215,13 @@ class Grapher(Window):
             attrs = field.split(".")
             attr = self.data
             if len(attrs) > 1:
-                for i in range(len(attrs)-1):
+                for i in range(len(attrs) - 1):
                     attr = getattr(attr, attrs[i])
             data = getattr(attr, attrs[-1])
             new_row.append(data)
         try:
             with open(self.recording_file_path, "a") as f:
-                text = ",".join([str(f) for f in new_row])+"\n"
+                text = ",".join([str(f) for f in new_row]) + "\n"
                 f.write(text)
         except Exception as e:
             self.toggle_recording()
@@ -228,10 +232,25 @@ class Grapher(Window):
         self.recording_update.emit()
 
     def display_field_axes_options(self):
+        x_axis_choice = self.XAxis.currentText()
+        y_axis_choice = self.YAxis.currentText()
+        z_axis_choice = self.ZAxis.currentText()
+
+        while self.XAxis.count() > 0:
+            self.XAxis.removeItem(0)
+
+        while self.YAxis.count() > 0:
+            self.YAxis.removeItem(0)
+
+        while self.ZAxis.count() > 0:
+            self.ZAxis.removeItem(0)
+
+        if self.InputRecording.currentText() == "":
+            return
         if self.LiveGraph.isChecked() and self.is_recording:
-            fields = ["Time"]+self.fields_to_record
+            fields = ["Time"] + self.fields_to_record
         else:
-            selected_file = self.recordings_path/self.InputRecording.currentText()
+            selected_file = self.recordings_path / self.InputRecording.currentText()
             if selected_file == "":
                 return
             try:
@@ -240,31 +259,21 @@ class Grapher(Window):
             except Exception as e:
                 print(e, file=sys.stderr)
                 return
-        x_axis_choice = self.XAxis.currentText()
-        y_axis_choice = self.YAxis.currentText()
-        z_axis_choice = self.ZAxis.currentText()
 
-        while self.XAxis.count() > 0:
-            self.XAxis.removeItem(0)
         for field in fields:
             self.XAxis.addItem(field)
         if x_axis_choice in fields:
             self.XAxis.setCurrentText(x_axis_choice)
 
-        while self.YAxis.count() > 0:
-            self.YAxis.removeItem(0)
         for field in fields:
             self.YAxis.addItem(field)
         if y_axis_choice in fields:
             self.YAxis.setCurrentText(y_axis_choice)
 
-        while self.ZAxis.count() > 0:
-            self.ZAxis.removeItem(0)
         for field in fields:
             self.ZAxis.addItem(field)
         if z_axis_choice in fields:
             self.ZAxis.setCurrentText(z_axis_choice)
-
 
     def toggle_recording(self):
         if not self.is_recording:
@@ -295,7 +304,7 @@ class Grapher(Window):
 
             try:
                 with open(self.recording_file_path, "w+") as f:
-                    f.write(",".join(self.recording_dataframe.columns)+"\n")
+                    f.write(",".join(self.recording_dataframe.columns) + "\n")
             except Exception as e:
                 QMessageBox.warning(None, "Error", f"Failed to start recording:\n{e}")
                 return
@@ -330,7 +339,7 @@ class Grapher(Window):
             return
 
         if self.LiveGraph.isChecked():
-            graph_widget = GraphWidget(self.recording_dataframe, axes,  self.GraphType.currentText() == "3D Graph",
+            graph_widget = GraphWidget(self.recording_dataframe, axes, self.GraphType.currentText() == "3D Graph",
                                        True, title,
                                        recording_update_signal=self.recording_update,
                                        recording_end_signal=self.recording_end)
@@ -340,7 +349,7 @@ class Grapher(Window):
                 QMessageBox.warning(None, "No Chosen Recording", "Please select a recording to graph")
                 return
 
-            df = pd.read_csv(self.recordings_path/df_file)
+            df = pd.read_csv(self.recordings_path / df_file)
             graph_widget = GraphWidget(df, axes, self.GraphType.currentText() == "3D Graph", False, title)
 
         if not graph_widget.build_success:
@@ -359,7 +368,6 @@ class Grapher(Window):
             no_graphs_label = QLabel("No Graphs to Display...")
             no_graphs_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.GraphTabWidget.addTab(no_graphs_label, "No Graphs to Display")
-
 
     def model_migration(self, start_year: int, end_year: int, migration_years: list[int], input_images: list[str],
                         year_display_positions: list[tuple[int, int]]):

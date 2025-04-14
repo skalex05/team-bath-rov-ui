@@ -1,5 +1,23 @@
 # Team Bath Hydrobotics ROV UI
 
+## Installation
+
+### UI Installation
+
+To install the UI onto your computer, install this repo to a location of your choice. Next run:
+
+`pip install -r requirements.txt`
+
+Next, download [OCR-Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) for eDNA Sampling.
+
+Finally, run `main.py` from the command line or an IDE of your choosing. 
+
+**NOTE:** _`team-bath-rov-ui/source` must be your current working directory_ Otherwise, the program may fail to find certain files.
+
+### ROV Installation
+
+To install the interface onto the ROV for bidirectional communication with the UI, please follow the [ROV Installation Guide](source//datainterface//ROV_INTERFACE_INSTALL.md).
+
 ## Code Standards
 
 Python code should be written to adhere to the [PEP 8 Standard](..%2F..%2F..%2FAppData%2FLocal%2FTemp%2FPEP%208-%20The%20Style%20Guide%20for%20Python%20Code.url) for laying out code to help maintain clear code readability.
