@@ -8,9 +8,9 @@ from threading import Thread
 import subprocess
 import psutil
 
-from action_enum import ActionEnum
-from rov_data import ROVData
-from stdout_type import StdoutType
+from data_classes.action_enum import ActionEnum
+from rov_float_data_structures.rov_data import ROVData
+from data_classes.stdout_type import StdoutType
 from video_stream import VideoStream
 from sock_stream_recv import SockStreamRecv
 from sock_stream_send import SockStreamSend, SockSend
