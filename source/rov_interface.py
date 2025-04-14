@@ -36,7 +36,7 @@ class ROVInterface:
             self.UI_IP = ui_ip
 
         if self.UI_IP is None:
-            raise "Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to."
+            raise ValueError("Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to.")
 
         self.rov_data = ROVData()
         self.i = 100  # temp variable

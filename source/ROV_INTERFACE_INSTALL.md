@@ -7,29 +7,32 @@ Please read the following to ensure necessary dependencies are installed and tha
 
 The following files/directories from this git repo need to be installed on the **ROV** for the `rov_interface` to work:
 
-- `source/datainterface/rov_interface.py`
+- `source/rov_interface.py`
 - `source/datainterface/sock_stream_recv.py`
 - `source/datainterface/sock_stream_send.py`
 - `source/datainterface/video_stream.py` (Will most likely be deprecated in future)
 - `source/data_classes`
 
-Additionally, please install the ROV-specific requirements by running `pip install -r rov_requirments.txt`
+Next, create a Python Virtual Environment by running `python3 -m venv venv`. 
+Start this environment with `source venv/bin/activate`.
 
-## Configuring networking (Work in Progress)
+Please install the ROV-specific requirements by running `pip3 install -r rov_requirments.txt`
+
+## Configuring Networking (Work in Progress)
 
 Connect your computer, the system that will run the UI, to a router.
 
 Connect the ROV (Raspberry Pi) to the same router.
 
 On the system that will run the UI, run `ipconfig` to find the **IPv4 Address** of your computer on the router's network.
-In `source/datainterface/rov_interface.py` on the Raspberry Pi, navigate to the bottom of the file. Set the following parameters of ROVInterface:
+In `source//rov_interface.py` on the Raspberry Pi, navigate to the bottom of the file. Set the following parameters of ROVInterface:
 
 - **local_test** = False (This sets up the ROV to listen to incoming connections from other devices)
 - **ui_ip** = <The IPv4 Address obtained from running `ipconfig` on your system>
 
 The bottom of this file should then look something like this:
 
-![Example of correctly configured ROVInterface](/../../README-IMAGES/ROVInterfaceexample.png)
+![Example of correctly configured ROVInterface](../README-IMAGES/ROVInterfaceexample.png)
 
 Next, run `ifconfig` on the Raspberry Pi to find it's **IPv4 Address** on the router's network.
 
