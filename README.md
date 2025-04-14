@@ -14,6 +14,8 @@ Finally, run `main.py` from the command line or an IDE of your choosing.
 
 **NOTE:** _`team-bath-rov-ui/source` must be your current working directory_. Otherwise, the program may fail to find certain files.
 
+Please now also follow through ROV Installation if you would like to test the ROV locally.
+
 ### ROV Installation
 
 To install the interface onto the ROV for bidirectional communication with the UI, please follow the [ROV Installation Guide](source//ROV_INTERFACE_INSTALL.md).

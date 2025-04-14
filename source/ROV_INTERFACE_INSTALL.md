@@ -18,21 +18,38 @@ Start this environment with `source venv/bin/activate`.
 
 Please install the ROV-specific requirements by running `pip3 install -r rov_requirments.txt`
 
-## Configuring Networking (Work in Progress)
+## Configuring for local ROV testing
+
+If you would like to run an emulation of the ROV on your computer for testing, please follow this section.
+
+Create a file in `/source` called `rov_config.json` and add the following to the file:
+
+```
+{
+  "local_test": true,
+  "camera_count": 3
+}
+```
+
+## Configuring for Real ROV (Work in Progress)
 
 Connect your computer, the system that will run the UI, to a router.
 
 Connect the ROV (Raspberry Pi) to the same router.
 
 On the system that will run the UI, run `ipconfig` to find the **IPv4 Address** of your computer on the router's network.
-In `source//rov_interface.py` on the Raspberry Pi, navigate to the bottom of the file. Set the following parameters of ROVInterface:
 
-- **local_test** = False (This sets up the ROV to listen to incoming connections from other devices)
-- **ui_ip** = <The IPv4 Address obtained from running `ipconfig` on your system>
+Create a file in `/source` called `rov_config.json` and add the following to the file:
 
-The bottom of this file should then look something like this:
+```
+{
+  "ui_ip": "192.168.0.33",
+  "local_test": false,
+  "camera_count": 3
+}
+```
 
-![Example of correctly configured ROVInterface](../README-IMAGES/ROVInterfaceexample.png)
+Replace `"192.168.0.33"` with the **IPv4 Address** found from ipconfig.
 
 Next, run `ifconfig` on the Raspberry Pi to find it's **IPv4 Address** on the router's network.
 
