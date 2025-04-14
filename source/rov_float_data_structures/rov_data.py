@@ -1,6 +1,6 @@
 from random import random, randint
 
-from vector3 import Vector3
+from data_classes.vector3 import Vector3
 
 
 # Temp function for generating a random float (optionally rounded to 'dp' decimal places)

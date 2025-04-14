@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QLabel, QRadioButton, QWidget, QPlainTextEdit, QPush
 from PyQt6.QtCore import QRect, QTimer, QThread
 
 from datainterface.data_interface import DataInterface, StdoutType
-from datainterface.action_enum import ActionEnum
+from data_classes.action_enum import ActionEnum
 from datainterface.sock_stream_send import SockSend
 from datainterface.video_display import VideoDisplay
 from tasks.task import Task

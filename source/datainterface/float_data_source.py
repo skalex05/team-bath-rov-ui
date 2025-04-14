@@ -1,6 +1,6 @@
 import pickle
 
-from float_data import FloatData
+from rov_float_data_structures.float_data import FloatData
 from sock_stream_send import SockStreamSend
 
 float_data = FloatData()

@@ -15,11 +15,11 @@ import pygame
 from PyQt6.QtCore import pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QImage
 
-from float_data import FloatData
-from rov_data import ROVData
-from vector3 import Vector3
+from rov_float_data_structures.float_data import FloatData
+from rov_float_data_structures.rov_data import ROVData
+from data_classes.vector3 import Vector3
 from video_frame import VideoFrame
-from stdout_type import StdoutType
+from data_classes.stdout_type import StdoutType
 from numpy import ndarray
 
 if TYPE_CHECKING:

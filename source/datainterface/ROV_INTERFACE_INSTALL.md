@@ -5,16 +5,13 @@ Please read the following to ensure necessary dependencies are installed and tha
 
 ## Dependencies
 
-The following files from this git repo need to be installed on the **ROV** for the `rov_interface` to work:
+The following files/directories from this git repo need to be installed on the **ROV** for the `rov_interface` to work:
 
 - `source/datainterface/rov_interface.py`
-- `source/datainterface/rov_data.py`
 - `source/datainterface/sock_stream_recv.py`
 - `source/datainterface/sock_stream_send.py`
-- `source/datainterface/stdout_type.py`
-- `source/datainterface/vector3.py`
-- `source/datainterface/action_enum.py`
 - `source/datainterface/video_stream.py` (Will most likely be deprecated in future)
+- `source/data_classes`
 
 Additionally, please install the ROV-specific requirements by running `pip install -r rov_requirments.txt`
 
