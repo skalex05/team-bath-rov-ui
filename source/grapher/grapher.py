@@ -167,7 +167,7 @@ class Grapher(Window):
         self.eDNAProgressBar: QProgressBar = self.findChild(QProgressBar, "eDNAProgress")
 
         self.eDNA_sampler = eDNASampler()
-        if not self.eDNA_sampler.build_success:
+        if self.eDNA_sampler.build_success:
             self.eDNA_sampler.progress_update.connect(lambda pi: self.eDNAProgressBar.setValue(pi))
         else:
             self.eDNAButton.setDisabled(True)
