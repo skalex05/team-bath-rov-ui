@@ -133,7 +133,7 @@ def SockSend(app: Optional["App"], addr: str, port: int, msg: Any, max_retries: 
     header = struct.pack(HEADER_FORMAT, len(bytes_to_send), time.time(), -1)
     payload = header + bytes_to_send
     retries = 0
-    while app is None or not app.closing and (max_retries < 1 or retries < max_retries):
+    while (app is None or not app.closing) and (max_retries < 1 or retries < max_retries):
         # Try and connect to server (Non-blocking)
         try:
             data_client = socket(AF_INET, SOCK_STREAM)
