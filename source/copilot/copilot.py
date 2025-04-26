@@ -160,7 +160,7 @@ class Copilot(Window):
             self.complete_by_label.setText(f"Complete By: {up_next.start_time[0]:02} : {up_next.start_time[1]:02}")
         else:
             self.up_next_title.setText("")
-            self.complete_by_label.setText(f"Complete By: {DURATION_INT//60}:{DURATION_INT%60}")
+            self.complete_by_label.setText(f"Complete By: {DURATION_INT // 60}:{DURATION_INT % 60}")
 
     def attach_data_interface(self) -> None:
         self.data = self.app.data_interface
@@ -259,6 +259,8 @@ class Copilot(Window):
         if self.connection_debounce:
             return
         if not self.data.is_rov_connected():
+            if not self.app.local_test:
+                print("The ROV must be turned on manually")
             self.rov_power_action.setChecked(False)
             self.connection_debounce = True
             self.con_timer = QTimer()
@@ -271,6 +273,12 @@ class Copilot(Window):
                 ex = "python3"
             subprocess.Popen([ex, "rov_interface.py"])
         else:
+            response = QMessageBox.warning(None, f"Power Off Warning", f"Are you sure you want to turn off the ROV?",
+                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                           QMessageBox.StandardButton.No
+                                           )
+            if response == QMessageBox.StandardButton.No:
+                return
             self.rov_power_action.setChecked(True)
             self.connection_debounce = True
             self.con_timer = QTimer()
@@ -278,7 +286,6 @@ class Copilot(Window):
             self.con_timer.start(5000)
             print("Power Off!")
             SockSend(self.app, self.app.ROV_IP, 52527, ActionEnum.POWER_OFF_ROV)
-
 
     def maintain_depth(self) -> None:
         if self.data.is_rov_connected():
@@ -338,15 +345,18 @@ class Copilot(Window):
             self.connect_float_action.setText("Connect Float")
 
     def update_stdout(self, source, line) -> None:
+        sources = {
+            StdoutType.UI: "UI",
+            StdoutType.UI_ERROR: "UI ERR",
+            StdoutType.ROV: "ROV",
+            StdoutType.ROV_ERROR: "ROV ERR"
+        }
+
+        source_str = sources[source]
+
         # Display latest data for window
-        if source == StdoutType.UI:
-            line = "[UI] - " + line
-        elif source == StdoutType.UI_ERROR:
-            line = "[UI ERR] - " + line
-        elif source == StdoutType.ROV:
-            line = "[ROV] - " + line
-        elif source == StdoutType.ROV_ERROR:
-            line = "[ROV ERR] - " + line
+        str_header = f"[{source_str}] - "
+        line = str_header + line.replace("\n", "\n"+" " * len(str_header))
 
         self.stdout_window.appendPlainText(line)
 

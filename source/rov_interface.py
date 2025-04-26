@@ -25,7 +25,7 @@ if os.name == "nt":
 
 # Available Port Numbers: 49152-65535
 class ROVInterface:
-    def __init__(self, ui_ip=None, local_test=True, camera_count=3, use_new_camera_system=True):
+    def __init__(self, ui_ip=None, local_test=True, camera_count=3, use_new_camera_system=True, config_not_found=False):
         self.local_test = local_test
         self.use_new_camera_system = use_new_camera_system
         self.camera_count = camera_count
@@ -49,6 +49,9 @@ class ROVInterface:
         self.hold_depth = 0
         self.maintain_depth = False
 
+        stdout_thread = Thread(target=self.rov_stdout_thread)
+        stdout_thread.start()
+
         self.print_to_ui("Powering On...")
 
         data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
@@ -69,9 +72,6 @@ class ROVInterface:
                                               self.video_streams[i].get_camera_frame, None, protocol="udp")
             video_thread.start()
 
-        stdout_thread = Thread(target=self.rov_stdout_thread)
-        stdout_thread.start()
-
         if not self.use_new_camera_system:
             self.print_to_ui("ROV is using old camera system", error=True)
 
@@ -83,6 +83,9 @@ class ROVInterface:
         action_thread.start()
 
         self.print_to_ui("Powered On!")
+        if config_not_found:
+            self.print_to_ui("rov_config.json could not be found.\n"
+                             "Please follow the Instructions in ROV_INTERFACE_INSTALL.md in project source", error=True)
 
     def print_to_ui(self, msg, error=False) -> None:
         if error:
@@ -230,4 +233,11 @@ try:
 
     ROVInterface(**config_file)
 except FileNotFoundError:
-    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md", sys.stderr)
+    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md."
+          "\nUsing default settings", file=sys.stderr)
+    default = {
+        "local_test": True,
+        "camera_count": 1,
+        "config_not_found": True
+    }
+    ROVInterface(**default)

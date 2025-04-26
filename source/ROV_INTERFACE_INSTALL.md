@@ -39,6 +39,8 @@ Connect the ROV (Raspberry Pi) to the same router.
 
 On the system that will run the UI, run `ipconfig` to find the **IPv4 Address** of your computer on the router's network.
 
+On the ROV, run `ping <ui-ip>` replacing \<ui-ip> with the IPv4 Address of your system on the network. This should work! If not, make sure you have found the correct IPv4 Address.
+
 Create a file in `/source` called `rov_config.json` and add the following to the file:
 
 ```
@@ -53,6 +55,14 @@ Replace `"192.168.0.33"` with the **IPv4 Address** found from ipconfig.
 
 Next, run `ifconfig` on the Raspberry Pi to find it's **IPv4 Address** on the router's network.
 
+On your system , run `ping <rov-ip>` replacing \<rov-ip> with the IPv4 Address of your system on the network. This *might* work! If not, make sure you have found the correct IPv4 Address. If you have, do the following:
+
+### Windows 11
+
+- Open Settings
+- Navigate to Network & Internet / Advanced Network Settings / Advanced Sharing Settings
+- Enable File and Printer Sharing
+
 On your computer, navigate to main.py and set **ROV_IP** to this IPv4 Address. Also set **RUN_LOCALLY** to *False*.
 
 ### Additional Notes
@@ -62,3 +72,5 @@ _It is recommended to set the IPs of your computer and the ROV to static on this
 _Disable firewall protections that may block communication between the two devices._ (This could be expanded to be more specific).
 
 ## You should now be all set up to begin interacting with the ROV through the UI!
+
+If you are running the code on the actual ROV, simply run `python3 rov_interface.py`.
