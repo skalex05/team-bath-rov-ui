@@ -26,7 +26,7 @@ class eDNASampler(QWidget):
         self.tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         if not os.path.exists(self.tesseract_path):
             print("Tesseract-OCR not found at C:\Program Files\Tesseract-OCR."
-                  " Update the path accordingly for the eDNA sampler to work.",file=sys.stderr)
+                  " Update the path accordingly for the eDNA sampler to work.", file=sys.stderr)
 
         pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
         self.build_success = True

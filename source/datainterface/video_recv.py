@@ -1,4 +1,3 @@
-import sys
 from typing import Literal, TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
