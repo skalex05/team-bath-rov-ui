@@ -261,6 +261,7 @@ class Copilot(Window):
         if not self.data.is_rov_connected():
             if not self.app.local_test:
                 print("The ROV must be turned on manually")
+                return
             self.rov_power_action.setChecked(False)
             self.connection_debounce = True
             self.con_timer = QTimer()

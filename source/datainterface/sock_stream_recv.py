@@ -76,8 +76,6 @@ class SockStreamRecv(threading.Thread):
                     time.sleep(sleep - d)
                     d = sleep
                 last_msg = time.time()
-                # if self.port == 52524:
-                #     print(f"Receiving {len(payload)} bytes {1/(d+0.000000001)} times a second")
             except (ConnectionError, TimeoutError):
                 # Socket was disconnected, reinitialise the socket to attempt to reconnect
                 self.connected = False
@@ -87,7 +85,7 @@ class SockStreamRecv(threading.Thread):
                 data_server.setblocking(False)
                 data_server.bind((self.addr, self.port))
             except Exception as e:
-                print(e)
+                print(f"Unhandled Exception in UDP sock stream recv {self.addr}:{self.port}",e, file=sys.stderr)
 
     def run_tcp(self) -> None:
         data_server = socket(AF_INET, SOCK_STREAM)
@@ -146,6 +144,8 @@ class SockStreamRecv(threading.Thread):
                 self.connected = False
                 if self.on_disconnect:
                     self.on_disconnect()
+            except Exception as e:
+                print(f"Unhandled Exception in TCP sock stream recv {self.addr}:{self.port}", e, file=sys.stderr)
 
     def is_connected(self) -> bool:
         return self.connected

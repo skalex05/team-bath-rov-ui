@@ -1,9 +1,10 @@
+import time
 from typing import Literal, TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
 from threading import Thread
-import cv2
+import av
 from numpy import ndarray
 
 if TYPE_CHECKING:
@@ -17,26 +18,33 @@ class VideoRecv(QObject):
     on_disconnect = pyqtSignal()
 
     def __init__(self, app: "App", addr: str, port: int):
+        print(f"Creating a Camera Receiver: {addr=} {port=}")
+
         super().__init__()
 
         def recv():
             while not app.closing:
-                cap = cv2.VideoCapture(f"udp://{addr}:{port}?timeout=1000")
-                if app.closing:
-                    continue
-                if not cap.isOpened():
-                    cap.release()
-                    continue
-                self.on_connect.emit()
-                while not app.closing:
-                    ret, frame = cap.read()
-                    if not ret:
-                        self.on_disconnect.emit()
-                        cap.release()
-                        break
+                time.sleep(0)
+                connected = False
+                try:
+                    with av.open(f"udp://{addr}:{port}?timeout=1000&buffer_size=65536", timeout=1) as container:
+                        if app.closing:
+                            continue
+                        for frame in container.decode(video=0):
+                            if app.closing:
+                                break
 
-                    self.on_recv.emit(frame)
-                cap.release()
+                            if not connected:
+                                connected = True
+                                self.on_connect.emit()
+
+                            frame = frame.to_ndarray(format="bgr24")
+
+                            self.on_recv.emit(frame)
+                except (OSError, av.ExitError) as e:
+                    time.sleep(0.5)
+                if connected:
+                    self.on_disconnect.emit()
 
         self.thread = Thread(target=recv)
         self.thread.start()
