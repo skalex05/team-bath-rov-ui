@@ -25,12 +25,18 @@ if os.name == "nt":
 
 # Available Port Numbers: 49152-65535
 class ROVInterface:
-    def __init__(self, ui_ip=None, local_test=True, camera_count=3, use_new_camera_system=True, config_not_found=False):
+    def __init__(self, ui_ip=None, local_test=True, camera_count=3, use_new_camera_system=True):
         self.local_test = local_test
         self.use_new_camera_system = use_new_camera_system
         self.camera_count = camera_count
 
-        self.ROV_IP = "0.0.0.0"
+        # ROV state attributes
+
+        self.closing = False
+        self.hold_depth = 0
+        self.maintain_depth = False
+
+        self.ROV_IP = "192.168.1.133"
         if self.local_test:
             self.UI_IP = "localhost"
         else:
@@ -40,19 +46,15 @@ class ROVInterface:
             raise ValueError(
                 "Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to.")
 
+        print(
+            f"Creating ROV Interface:\n{self.UI_IP=}\n{self.ROV_IP=}\n{self.use_new_camera_system=}\n{self.local_test=}\n{camera_count=}")
+
         self.rov_data = ROVData()
         self.i = 100  # temp variable
 
-        # ROV state attributes
-
-        self.closing = False
-        self.hold_depth = 0
-        self.maintain_depth = False
-
-        stdout_thread = Thread(target=self.rov_stdout_thread)
-        stdout_thread.start()
-
         self.print_to_ui("Powering On...")
+
+        print(f"Binding Data Thread to {self.UI_IP} : {52525}")
 
         data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
         data_thread.start()
@@ -63,29 +65,36 @@ class ROVInterface:
             self.video_streams = [VideoStream(i) for i in range(self.camera_count)]
 
         for i in range(self.camera_count):
+            print("Binding video threads")
             if self.use_new_camera_system:
+                print(f"\tBinding to {'127.0.0.1' if self.local_test else self.UI_IP} : {52524 - i}")
                 video_thread = Thread(target=self.video_send,
-                                      kwargs={"addr": "127.0.0.1" if self.local_test else self.ROV_IP,
+                                      kwargs={"addr": "127.0.0.1" if self.local_test else self.UI_IP,
                                               "port": 52524 - i, "i": i})
             else:
+                print(f"\tBinding to {'localhost' if self.local_test else self.UI_IP} : {52524 - i}")
                 video_thread = SockStreamSend(self, "localhost" if self.local_test else self.UI_IP, 52524 - i, 0.0333,
                                               self.video_streams[i].get_camera_frame, None, protocol="udp")
             video_thread.start()
 
+        stdout_thread = Thread(target=self.rov_stdout_thread)
+        stdout_thread.start()
+
         if not self.use_new_camera_system:
             self.print_to_ui("ROV is using old camera system", error=True)
+
+        print(f"Binding Input Thread to {self.ROV_IP} : {52526}")
 
         input_thread = SockStreamRecv(self, self.ROV_IP, 52526, self.controller_input_recv,
                                       lambda: self.print_to_ui("Controller Disconnected From ROV", True))
         input_thread.start()
 
+        print(f"Binding Action Thread to {self.ROV_IP} : {52527}")
+
         action_thread = SockStreamRecv(self, self.ROV_IP, 52527, self.action_recv)
         action_thread.start()
 
         self.print_to_ui("Powered On!")
-        if config_not_found:
-            self.print_to_ui("rov_config.json could not be found.\n"
-                             "Please follow the Instructions in ROV_INTERFACE_INSTALL.md in project source", error=True)
 
     def print_to_ui(self, msg, error=False) -> None:
         if error:
@@ -200,27 +209,34 @@ class ROVInterface:
             time.sleep(1)
             if self.local_test:
                 if os.name == "nt":
-                    process = subprocess.Popen(
-                        f'ffmpeg -fflags nobuffer -f dshow -i video="{camera_devices[i]}" '
-                        '-b:v 16M -preset ultrafast -tune zerolatency -g 30 '
-                        f' -r 30 -s 1920x1080 -preset fast -f mpegts udp://{addr}:{port}', shell=True)
-                    print(f'ffmpeg -fflags nobuffer -f dshow -i video="{camera_devices[i]}" '
-                          '-b:v 4M -preset ultrafast -tune zerolatency -g 30 '
-                          f' -r 30 -s 1920x1080 -preset fast -f mpegts udp://{addr}:{port}')
+                    process = (f'ffmpeg -fflags nobuffer -f dshow -i video="{camera_devices[i]}" '
+                               '-b:v 16M -preset ultrafast -tune zerolatency -g 30 '
+                               f' -r 30 -s 1920x1080 -preset fast -f mpegts udp://{addr}:{port}')
+
                 elif os.name == "posix":
-                    process = subprocess.Popen(f'ffmpeg -f avfoundation -i "{i}" -c:v libx264 '
-                                               '-b:v 4M -preset ultrafast -tune zerolatency -g 30 '
-                                               f'-preset ultrafast -f mpegts udp://{addr}:{port}')
+                    process = (f'ffmpeg -f avfoundation -i "{i}" -c:v libx264 '
+                               '-b:v 4M -preset ultrafast -tune zerolatency -g 30 '
+                               f'-preset ultrafast -f mpegts udp://{addr}:{port}')
                 else:
                     print("Warning: Detected you are not running on Windows or Mac.\n"
                           "If you are running this on the Raspberry PI, please set local_test to False",
                           file=sys.stderr)
-                    process = subprocess.Popen(f'ffmpeg -f avfoundation -i "{i}" -c:v libx264 '
-                                               f'-preset ultrafast -f mpegts udp://{addr}:{port}')
+                    process = (f"rpicam-vid -t {i} -n --width 1920 --height 1080"
+                               f" --codec libav --libav-format mpegts"
+                               f" --bitrate 30000000"
+                               f" -o udp://{addr}:{port}")
             else:
-
-                process = subprocess.Popen(f"rpicam-vid -t {i} -n --codec libav --libav-format mpegts "
-                                           f"--low-latency -o udp://{addr}:{port}", shell=True)
+                process = (f"rpicam-vid -t {i} -n --width 2028 --height 1080"
+                           # f" --codec libav --libav-format mpegts"
+                           f" --codec h264"
+                           f" --bitrate 6000000"
+                           # f" --profile high --level 4.2"
+                           f" --intra 1"
+                           f" --framerate 20"
+                           " --low-latency"
+                           f" -o udp://{addr}:{port}")
+            print(process)
+            process = subprocess.Popen(process, shell=True)
             self.video_processes[i] = process
             time.sleep(1)
             while process.poll() is None and not self.closing:
@@ -233,11 +249,4 @@ try:
 
     ROVInterface(**config_file)
 except FileNotFoundError:
-    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md."
-          "\nUsing default settings", file=sys.stderr)
-    default = {
-        "local_test": True,
-        "camera_count": 1,
-        "config_not_found": True
-    }
-    ROVInterface(**default)
+    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md", sys.stderr)

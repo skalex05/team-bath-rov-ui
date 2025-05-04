@@ -132,6 +132,7 @@ class DataInterface(QObject):
 
         # Controller Input Thread
         # Collects and sends input to the ROV
+        print("Creating sock stream send")
         self.controller_input_thread = SockStreamSend(self.app, self.app.ROV_IP, 52526, 0.01,
                                                       self.get_controller_input)
         self.controller_input_thread.start()

@@ -9,9 +9,9 @@ from app import App
 faulthandler.enable()
 
 DEBUG = False  # STDOUT will not be displayed in the UI when set to True.
-RUN_ROV_LOCALLY = True  # Set this to true to create dummy processes for the ROV
+RUN_ROV_LOCALLY = False  # Set this to true to create dummy processes for the ROV
 USE_NEW_CAMERA_SYSTEM = True
-ROV_IP = "192.168.1.235"
+ROV_IP = "192.168.1.133"
 FLOAT_IP = "localhost"
 
 with Profile() as profile:
