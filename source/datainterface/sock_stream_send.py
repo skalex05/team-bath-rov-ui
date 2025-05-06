@@ -75,13 +75,16 @@ class SockStreamSend(threading.Thread):
                 if self.connected and self.on_disconnect is not None:
                     self.on_disconnect()
                 self.connected = False
-
+                data_client.close()
                 data_client = socket(AF_INET, SOCK_DGRAM)
                 data_client.setblocking(False)
                 data_client.settimeout(self.timeout)
             except Exception as e:
-                print(f"Unhandled Exception in TCP sock stream send thread {self.addr}:{self.port}", e, file=sys.stderr)
+                print(f"Unhandled Exception in TCP SockStreamSend thread {self.addr}:{self.port}", e, file=sys.stderr)
                 continue
+                
+        data_client.close()
+        print(f"Closed {self.addr}:{self.port}")
 
     def run_tcp(self) -> None:
         print_conn_err = True
@@ -104,7 +107,7 @@ class SockStreamSend(threading.Thread):
                     print_conn_err = False
                 continue
             except Exception as e:
-                print(e, file=sys.stderr)
+                print(f"Exception in TCP SockStreamSend {self.addr}:{self.port}",e, file=sys.stderr)
                 continue
 
             try:
@@ -136,6 +139,9 @@ class SockStreamSend(threading.Thread):
                 self.connected = False
                 if self.on_disconnect is not None:
                     self.on_disconnect()
+            finally:
+                data_client.close()
+            print(f"Closed {self.addr}:{self.port}")
 
     def is_connected(self) -> bool:
         return self.connected
@@ -154,7 +160,7 @@ def SockSend(app: Union["App", "ROVInterface"], addr: str, port: int, msg: Any, 
         # Try and connect to server (Non-blocking)
         try:
             data_client = socket(AF_INET, SOCK_STREAM)
-            data_client.settimeout(0.5)
+            data_client.settimeout(0.1)
             data_client.connect((addr, port))
 
             # Connected
