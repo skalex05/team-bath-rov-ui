@@ -99,6 +99,7 @@ class SockStreamRecv(threading.Thread):
         try:
             data_server = socket(AF_INET, SOCK_STREAM)
             data_server.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            data_server.setblocking(False)
             data_server.bind((self.addr, self.port))
             data_server.settimeout(self.timeout)
         except OSError as e:
@@ -107,21 +108,19 @@ class SockStreamRecv(threading.Thread):
         except socket.gaierror:
             print(f"Could not resolve hostname for {self}",file=sys.stderr)
             return
-            
         while not self.app.closing:
             try:
                 time.sleep(0)  # Temporarily relinquish thread from CPU
                 try:
                     data_server.listen()
-                    print(f"Listening on {self}")
                     conn, _ = data_server.accept()
+                    conn.settimeout(self.timeout)
                 except (TimeoutError, OSError, ConnectionError) as e:  # Ensure non-blocking waiting for a connection
                     if type(e) is OSError:
                         print(f"OSError in TCP SockStreamRecv {self}",e, file=sys.stderr)
                     continue
                 if not self.connected and self.on_connect:
                     self.on_connect()
-                print(f"Connected on {self}")
                 self.connected = True
                 read_start = True
                 payload = b""
@@ -129,9 +128,7 @@ class SockStreamRecv(threading.Thread):
                 msg_size = 0
                 while not self.app.closing:
                     time.sleep(0)
-                    print(f"Recv on {self}")
                     incoming_bytes += conn.recv(self.buffer_size)
-                    print(f"Bytes on {self}")
                     # Connection has most likely failed if we are not receiving any bytes
                     # Only raise a connection error if we don't have any more messages to process
                     if len(incoming_bytes) < HEADER_SIZE and (msg_size == 0 or len(payload) < msg_size):
@@ -145,12 +142,10 @@ class SockStreamRecv(threading.Thread):
                             print("Couldn't read header:", header)
 
                         read_start = False
-
                     payload += incoming_bytes
-
+                    
                     if len(payload) >= msg_size:  # Message Received
                         payload, incoming_bytes = payload[:msg_size], payload[msg_size:]
-
                         # Allow the next message to be received.
                         read_start = True
 
@@ -159,19 +154,16 @@ class SockStreamRecv(threading.Thread):
                         payload = b""
                     else:
                         incoming_bytes = b""
-                print(f"Closing on {self}")
             # If the connection is broken, pass and wait to re-establish connection
-            except (ConnectionError, TimeoutError):
-                pass
+            except (ConnectionError, TimeoutError) as e:
+                print(self,e)
             except Exception as e:
                 print(f"Unhandled Exception in TCP sock stream recv {self}", e, file=sys.stderr)
             finally:
                 self.connected = False
                 if self.on_disconnect:
                     self.on_disconnect()
-                print(f"Disconnect on {self}")
         data_server.close()
-        print(f"Closed {self}")
 
     def is_connected(self) -> bool:
         return self.connected
