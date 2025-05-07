@@ -34,7 +34,8 @@ class SockStreamRecv(threading.Thread):
         super().__init__()
 
     def run(self) -> None:
-        # Run in either with either TCP or UDP protocols
+        # Run with either TCP or UDP protocols
+        print(f"Running {self}")
         if self.protocol == "tcp":
             self.run_tcp()
         else:
@@ -45,10 +46,18 @@ class SockStreamRecv(threading.Thread):
             self.run_udp()
 
     def run_udp(self) -> None:
-        data_server = socket(AF_INET, SOCK_DGRAM)
-        data_server.bind((self.addr, self.port))
-        data_server.setblocking(False)
-        last_msg = time.time()
+        try:
+            data_server = socket(AF_INET, SOCK_DGRAM)
+            data_server.bind((self.addr, self.port))
+            data_server.setblocking(False)
+            last_msg = time.time()
+        except OSError:
+            print(f"OSError in UDP SockStreamRecv {self}",e, file=sys.stderr)
+            return
+        except socket.gaierror:
+            print(f"Could not resolve hostname for {self}",file=sys.stderr)
+        
+        
         while not self.app.closing:
             time.sleep(0)  # Temporarily relinquish thread from CPU
             try:
@@ -81,36 +90,48 @@ class SockStreamRecv(threading.Thread):
                 self.connected = False
                 if self.on_disconnect:
                     self.on_disconnect()
-                data_server = socket(AF_INET, SOCK_DGRAM)
-                data_server.setblocking(False)
-                data_server.bind((self.addr, self.port))
             except Exception as e:
-                print(f"Unhandled Exception in UDP sock stream recv {self.addr}:{self.port}",e, file=sys.stderr)
+                print(f"Unhandled Exception in UDP SockStreamRecv {self}",e, file=sys.stderr)
+        data_server.close()
+        print(f"Closed {self}")
 
     def run_tcp(self) -> None:
-        data_server = socket(AF_INET, SOCK_STREAM)
-        data_server.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-        data_server.bind((self.addr, self.port))
-        data_server.settimeout(self.timeout)
-
+        try:
+            data_server = socket(AF_INET, SOCK_STREAM)
+            data_server.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            data_server.bind((self.addr, self.port))
+            data_server.settimeout(self.timeout)
+        except OSError as e:
+            print(f"OSError in TCP SockStreamRecv {self}",e, file=sys.stderr)
+            return
+        except socket.gaierror:
+            print(f"Could not resolve hostname for {self}",file=sys.stderr)
+            return
+            
         while not self.app.closing:
-            time.sleep(0)  # Temporarily relinquish thread from CPU
             try:
-                data_server.listen()
-                conn, _ = data_server.accept()
-            except TimeoutError:  # Ensure non-blocking waiting for a connection
-                continue
-            if not self.connected and self.on_connect:
-                self.on_connect()
-            self.connected = True
-            read_start = True
-            payload = b""
-            incoming_bytes = b""
-            msg_size = 0
-            try:
+                time.sleep(0)  # Temporarily relinquish thread from CPU
+                try:
+                    data_server.listen()
+                    print(f"Listening on {self}")
+                    conn, _ = data_server.accept()
+                except (TimeoutError, OSError, ConnectionError) as e:  # Ensure non-blocking waiting for a connection
+                    if type(e) is OSError:
+                        print(f"OSError in TCP SockStreamRecv {self}",e, file=sys.stderr)
+                    continue
+                if not self.connected and self.on_connect:
+                    self.on_connect()
+                print(f"Connected on {self}")
+                self.connected = True
+                read_start = True
+                payload = b""
+                incoming_bytes = b""
+                msg_size = 0
                 while not self.app.closing:
                     time.sleep(0)
+                    print(f"Recv on {self}")
                     incoming_bytes += conn.recv(self.buffer_size)
+                    print(f"Bytes on {self}")
                     # Connection has most likely failed if we are not receiving any bytes
                     # Only raise a connection error if we don't have any more messages to process
                     if len(incoming_bytes) < HEADER_SIZE and (msg_size == 0 or len(payload) < msg_size):
@@ -138,14 +159,22 @@ class SockStreamRecv(threading.Thread):
                         payload = b""
                     else:
                         incoming_bytes = b""
-
+                print(f"Closing on {self}")
             # If the connection is broken, pass and wait to re-establish connection
             except (ConnectionError, TimeoutError):
+                pass
+            except Exception as e:
+                print(f"Unhandled Exception in TCP sock stream recv {self}", e, file=sys.stderr)
+            finally:
                 self.connected = False
                 if self.on_disconnect:
                     self.on_disconnect()
-            except Exception as e:
-                print(f"Unhandled Exception in TCP sock stream recv {self.addr}:{self.port}", e, file=sys.stderr)
+                print(f"Disconnect on {self}")
+        data_server.close()
+        print(f"Closed {self}")
 
     def is_connected(self) -> bool:
         return self.connected
+    
+    def __repr__(self):
+        return f"{self.protocol} {self.addr}:{self.port}"
