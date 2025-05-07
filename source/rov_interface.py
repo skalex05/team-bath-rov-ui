@@ -25,7 +25,7 @@ if os.name == "nt":
 
 # Available Port Numbers: 49152-65535
 class ROVInterface:
-    def __init__(self, ui_ip=None, local_test=True, camera_count=3, use_new_camera_system=True):
+    def __init__(self, ui_ip=None, rov_ip=None, local_test=True, camera_count=3, use_new_camera_system=True):
         self.local_test = local_test
         self.use_new_camera_system = use_new_camera_system
         self.camera_count = camera_count
@@ -36,16 +36,22 @@ class ROVInterface:
         self.hold_depth = 0
         self.maintain_depth = False
 
-        self.ROV_IP = "192.168.1.133"
+        
         if self.local_test:
             self.UI_IP = "localhost"
+            self.ROV_IP = "localhost"
         else:
             self.UI_IP = ui_ip
+            self.ROV_IP = rov_ip
 
         if self.UI_IP is None:
             raise ValueError(
-                "Please set ui_ip parameter of ROVInterface to the IP of the device you would like to connect to.")
-
+                "Please set ui_ip parameter in rov_config.json of ROVInterface to the IP of the device you would like to connect to.")
+        
+        if self.ROV_IP is None:
+            raise ValueError(
+                "Please set rov_ip parameter in rov_config.json of ROVInterface to the IP of the ROV")
+        
         print(
             f"Creating ROV Interface:\n{self.UI_IP=}\n{self.ROV_IP=}\n{self.use_new_camera_system=}\n{self.local_test=}\n{camera_count=}")
 
@@ -56,14 +62,15 @@ class ROVInterface:
 
         print(f"Binding Data Thread to {self.UI_IP} : {52525}")
 
-        data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
-        data_thread.start()
+        self.data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
+        self.data_thread.start()
 
         self.video_streams = None
         self.video_processes: [subprocess.Popen | None] = [None for _ in range(self.camera_count)]
         if not self.use_new_camera_system:
             self.video_streams = [VideoStream(i) for i in range(self.camera_count)]
-
+        
+        self.video_threads = []
         for i in range(self.camera_count):
             print("Binding video threads")
             if self.use_new_camera_system:
@@ -76,23 +83,25 @@ class ROVInterface:
                 video_thread = SockStreamSend(self, "localhost" if self.local_test else self.UI_IP, 52524 - i, 0.0333,
                                               self.video_streams[i].get_camera_frame, None, protocol="udp")
             video_thread.start()
+            
+            self.video_threads.append(video_thread)
 
-        stdout_thread = Thread(target=self.rov_stdout_thread)
-        stdout_thread.start()
+        self.stdout_thread = Thread(target=self.rov_stdout_thread)
+        self.stdout_thread.start()
 
         if not self.use_new_camera_system:
             self.print_to_ui("ROV is using old camera system", error=True)
 
         print(f"Binding Input Thread to {self.ROV_IP} : {52526}")
 
-        input_thread = SockStreamRecv(self, self.ROV_IP, 52526, self.controller_input_recv,
+        self.input_thread = SockStreamRecv(self, self.ROV_IP, 52526, self.controller_input_recv,
                                       lambda: self.print_to_ui("Controller Disconnected From ROV", True))
-        input_thread.start()
+        self.input_thread.start()
 
         print(f"Binding Action Thread to {self.ROV_IP} : {52527}")
 
-        action_thread = SockStreamRecv(self, self.ROV_IP, 52527, self.action_recv)
-        action_thread.start()
+        self.action_thread = SockStreamRecv(self, self.ROV_IP, 52527, self.action_recv)
+        self.action_thread.start()
 
         self.print_to_ui("Powered On!")
 
@@ -178,8 +187,10 @@ class ROVInterface:
         self.rov_data.attitude.z += roll_input
 
     def action_recv(self, payload_bytes: bytes) -> None:
+        print("Action Recieved")
         action = pickle.loads(payload_bytes)
         args = tuple()
+        print(action)
         if type(action) is tuple:
             action, *args = action
         if action == ActionEnum.REINIT_CAMS:
@@ -191,18 +202,64 @@ class ROVInterface:
                     stream.start_init_camera_feed()
             self.print_to_ui(f"Camera Feeds Re-initialised")
         elif action == ActionEnum.MAINTAIN_ROV_DEPTH:
-            maintain_depth = args[0]
-            if maintain_depth:
+            self.maintain_depth = args[0]
+            
+            if self.maintain_depth:
                 self.print_to_ui(f"Maintaining Depth At {args[1]:.2f} m")
+                self.hold_depth = args[1]
             else:
                 self.print_to_ui("No Longer Maintaining Depth")
         elif action == ActionEnum.POWER_OFF_ROV:
-            self.print_to_ui("Turning Off...")
-            self.closing = True
-            for i in range(self.camera_count):
-                self.kill_video_process(i)
-            exit()
-
+            
+            self.close()
+            
+    def close(self):
+        print("Closing ROV Interface")
+        self.closing = True
+        self.print_to_ui("Turning Off...")
+        try:
+            if self.action_thread.is_alive():
+                self.action_thread.join(10)
+        except Exception as e:
+            print("Exception raised when closing Action Thread:", e, file=sys.stderr)
+        print("Closed Action Thread")
+        
+        try:
+            if self.input_thread.is_alive():
+                self.input_thread.join(10)
+        except Exception as e:
+            print("Exception raised when closing Input Thread:", e, file=sys.stderr)
+        print("Closed Input Thread")
+        
+        for video_thread in self.video_threads:
+            try:
+                if video_thread.is_alive():
+                    video_thread.join(10)
+            except Exception as e:
+                print("Exception raised when closing Video Thread:", e, file=sys.stderr)
+        print("Closed Video Threads")
+        
+        for i in range(self.camera_count):
+            self.kill_video_process(i)
+        print("Closed Video Processes")
+            
+        try:
+            if self.data_thread.is_alive():
+                self.data_thread.join(10)
+        except Exception as e:
+            print("Exception raised when closing Data Thread:", e, file=sys.stderr)
+        print("Closed Data Thread")
+        
+        try:
+            if self.stdout_thread.is_alive():
+                self.stdout_thread.join(10)
+        except Exception as e:
+            print("Exception raised when closing STDOUT Thread:", e, file=sys.stderr)
+        print("Closed STDOUT Thread")
+        
+        print("Closed")
+    
+    
     def video_send(self, addr: str, port: int, i: int) -> None:
         while not self.closing:
             self.kill_video_process(i)
@@ -235,20 +292,28 @@ class ROVInterface:
                            f" --framerate 20"
                            " --low-latency"
                            f" -o udp://{addr}:{port}")
-            print(process)
             process = subprocess.Popen(process, shell=True)
             self.video_processes[i] = process
             time.sleep(1)
             while process.poll() is None and not self.closing:
                 pass
 
-
 try:
     with open("rov_config.json", "r") as f:
         config_file = json.load(f)
-
-    ROVInterface(**config_file)
+    print(config_file)
+    interface = ROVInterface(**config_file)
+    
+    while not interface.closing:
+        time.sleep(0)
+        
 except FileNotFoundError:
-    print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md", sys.stderr)
-
-print("Finished")
+    print(("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md.\nThis file should look like:\n" 
+            "{\n"
+            '\t"ui_ip": <YOUR LAPTOP\'s IP>",\n'
+            '\t"local_test": false,\n'
+            '\t"camera_count": 3\n'
+            '}'),
+            file=sys.stderr)
+except json.decoder.JSONDecodeError:
+    print("Malformed rov_config.json file", file=sys.stderr)
