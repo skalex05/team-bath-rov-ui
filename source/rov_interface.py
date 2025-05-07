@@ -250,3 +250,5 @@ try:
     ROVInterface(**config_file)
 except FileNotFoundError:
     print("Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md", sys.stderr)
+
+print("Finished")

@@ -259,28 +259,27 @@ class Copilot(Window):
         if self.connection_debounce:
             return
         if not self.data.is_rov_connected():
-            if not self.app.local_test:
-                print("The ROV must be turned on manually")
-                return
             self.rov_power_action.setChecked(False)
             self.connection_debounce = True
             self.con_timer = QTimer()
             self.con_timer.timeout.connect(lambda: on_timeout("Couldn't connect to ROV"))
             self.con_timer.start(5000)
-
-            if os.name == "nt":
-                ex = "python.exe"
+            if self.app.local_test:
+                if os.name == "nt":
+                    ex = "python.exe"
+                else:
+                    ex = "python3"
+                subprocess.Popen([ex, "rov_interface.py"])
             else:
-                ex = "python3"
-            subprocess.Popen([ex, "rov_interface.py"])
+                SockSend(self.app, self.app.ROV_IP, 52528, ActionEnum.POWER_ON_ROV)
         else:
+            self.rov_power_action.setChecked(True)
             response = QMessageBox.warning(None, f"Power Off Warning", f"Are you sure you want to turn off the ROV?",
                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                            QMessageBox.StandardButton.No
                                            )
             if response == QMessageBox.StandardButton.No:
                 return
-            self.rov_power_action.setChecked(True)
             self.connection_debounce = True
             self.con_timer = QTimer()
             self.con_timer.timeout.connect(lambda: on_timeout("Couldn't power off the ROV", con=False))

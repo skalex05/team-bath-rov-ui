@@ -167,4 +167,4 @@ def SockSend(app: Union["App", "ROVInterface"], addr: str, port: int, msg: Any, 
         except Exception as e:
             print(f"Unhandled Exception in sock stream send function {addr}:{port}", e, file=sys.stderr)
     if 1 <= max_retries <= retries:
-        print("Couldn't send message: ", msg)
+        print(f"Couldn't send message: {msg} to {addr}:{port}")
