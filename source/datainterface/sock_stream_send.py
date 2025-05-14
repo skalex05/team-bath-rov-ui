@@ -1,7 +1,7 @@
 import pickle
 import struct
 import threading
-from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR
 import time
 from typing import TYPE_CHECKING, Literal, Any, Union
 from collections.abc import Callable
@@ -46,6 +46,7 @@ class SockStreamSend(threading.Thread):
         data_client = socket(AF_INET, SOCK_DGRAM)
         data_client.setblocking(False)
         data_client.settimeout(self.timeout)
+        data_client.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
         print_conn_err = True
         while not self.app.closing:
@@ -69,7 +70,7 @@ class SockStreamSend(threading.Thread):
                     time.sleep(self.sleep - d)
             except (ConnectionError, TimeoutError, OSError) as e:
                 if type(e) == OSError and print_conn_err:
-                    print(f"Cannot connect on {self.addr}:{self.port}", file=self.stderr)
+                    print(f"Cannot connect on {self.addr}:{self.port}", file=sys.stderr)
                     print_conn_err = False
 
                 if self.connected and self.on_disconnect is not None:
@@ -93,6 +94,7 @@ class SockStreamSend(threading.Thread):
             # Try and connect to server (Non-blocking)
             try:
                 data_client = socket(AF_INET, SOCK_STREAM)
+                data_client.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
                 data_client.settimeout(self.timeout)
                 data_client.connect((self.addr, self.port))
                 if not self.connected and self.on_connect:
@@ -134,8 +136,7 @@ class SockStreamSend(threading.Thread):
                     data_client.sendall(payload)
             # Allow program to reconnect if a connection/timeout error occurs
             except Exception as e:
-                if type(e) not in (ConnectionError, TimeoutError):
-                    print(f"Unhandled Exception in TCP sock stream send thread {self.addr}:{self.port}", e, file=sys.stderr)
+                print(f"Exception in TCP sock stream send thread {self.addr}:{self.port}", e, file=sys.stderr)
                 self.connected = False
                 if self.on_disconnect is not None:
                     self.on_disconnect()
@@ -173,4 +174,4 @@ def SockSend(app: Union["App", "ROVInterface"], addr: str, port: int, msg: Any, 
         except Exception as e:
             print(f"Unhandled Exception in sock stream send function {addr}:{port}", e, file=sys.stderr)
     if 1 <= max_retries <= retries:
-        print("Couldn't send message: ", msg)
+        print(f"Couldn't send message: {msg} to {addr}:{port}")
