@@ -247,7 +247,6 @@ class DataInterface(QObject):
             print("Received stdout was not of format <STDOUTTYPE>, <str>", file=sys.stderr)
 
     def get_controller_input(self) -> bytes:
-        print("Getting input")
         # Process all pygame events since the function was last called
         for event in pygame.event.get():
             # Handle Controller connection and disconnection
