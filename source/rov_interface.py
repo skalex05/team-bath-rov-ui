@@ -8,6 +8,10 @@ from random import random, choice
 from threading import Thread
 import subprocess
 import psutil
+import serial
+
+script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the script's directory
+os.chdir(script_dir)  # Change working directory to the script's location
 
 from data_classes.action_enum import ActionEnum
 from rov_float_data_structures.rov_data import ROVData
@@ -23,12 +27,24 @@ if os.name == "nt":
     camera_devices = graph.get_input_devices()
 
 
+thruster_matrix = [
+        [0,     0,    -0.707,     0.707,     0.707,   -0.707],   # x
+        [0,     0,     0.707,     0.707,     0.707,    0.707],   # y
+        [1,     1,     0,         0,         0,        0],       # z
+        [0,     0,    -0.0707,   -0.0707,    0.0707,  -0.0707],  # roll
+        [-0.13, -0.13, -0.0707,   -0.0707,   -0.0707,  -0.0707], # yaw
+        [0,     0,    -0.182,     0.182,    -0.182,    0.182]    # pitch
+    ]
+
 # Available Port Numbers: 49152-65535
 class ROVInterface:
-    def __init__(self, ui_ip=None, rov_ip=None, local_test=True, camera_count=3, use_new_camera_system=True):
+    def __init__(self, ui_ip=None, rov_ip=None, local_test=True, camera_count=3, use_new_camera_system=True, uart_port='/dev/ttyAMA0', uart_baud=115200):
         self.local_test = local_test
         self.use_new_camera_system = use_new_camera_system
         self.camera_count = camera_count
+        self.uart_port = uart_port
+        self.uart_baud = uart_baud
+        self.uart = None
 
         # ROV state attributes
 
@@ -168,23 +184,58 @@ class ROVInterface:
             time.sleep(3)
 
     def controller_input_recv(self, payload_bytes: bytes) -> None:
-        controller_input = pickle.loads(payload_bytes)
-        if controller_input is None:
+        global thruster_matrix
+        controller_data = pickle.loads(payload_bytes)
+        if controller_data is None:
             return
-        yaw_input = controller_input["axes"][0]
-        roll_input = controller_input["hats"][0][0]
-        pitch_input = controller_input["axes"][1]
+        
+        if self.uart is None or not self.uart.is_open:
+            try:
+                self.uart = serial.Serial(self.uart_port, self.uart_baud, timeout=1)
+                print(f"✅ UART opened on {self.uart_port} at {self.uart_baud} baud.")
+            except Exception as e:
+                print(f"❌ Failed to open UART: {e}")
+                return
+            
+            
+        axes = controller_data.get('axes', [])
+        hats = controller_data.get('hats', [])
+        print("Received Controller Data:")
+        print("Axes:   ", axes)
+        print("Buttons:", controller_data.get('buttons', []))
+        print("Hats:   ", hats)
+        print("-" * 40)
 
-        if abs(pitch_input) < 0.05:
-            pitch_input = 0
-        if abs(yaw_input) < 0.05:
-            yaw_input = 0
-        if abs(roll_input) < 0.05:
-            roll_input = 0
+        # Get up to 4 axes, pad with zeros if not enough
+        x     = float(axes[0]) if len(axes) > 0 else 0.0
+        z     = float(axes[1]) if len(axes) > 1 else 0.0
+        roll  = float(axes[2]) if len(axes) > 2 else 0.0
+        pitch = float(axes[3]) if len(axes) > 3 else 0.0
 
-        self.rov_data.attitude.y += yaw_input
-        self.rov_data.attitude.x += pitch_input
-        self.rov_data.attitude.z += roll_input
+        # Clamp all axes to [-1, 1]
+        x     = max(-1.0, min(1.0, x))
+        z     = max(-1.0, min(1.0, z))
+        roll  = max(-1.0, min(1.0, roll))
+        pitch = max(-1.0, min(1.0, pitch))
+
+        # Input vector for thruster mixing: [x, y, z, roll, yaw, pitch]
+        # y and yaw are unused, so set to 0.0
+        axes_in = [x, 0.0, z, roll, 0.0, pitch]
+
+        # Matrix multiplication: thruster = T * axes_in
+        thruster = []
+        for i in range(6):
+            value = sum(thruster_matrix[j][i] * axes_in[j] for j in range(6))
+            thruster.append(value)
+
+        # Format for ESP32: "val1,val2,val3,val4,val5,val6\n"
+        data_str = ','.join(f"{v:.4f}" for v in thruster) + '\n'
+        if self.uart.is_open:
+            self.uart.write(data_str.encode())
+            self.print_to_ui(f"Sent to ESP32: {data_str.strip()}")
+        else:
+            self.print_to_ui("Serial Connection to ESP32 Closed Unexpectedly")
+        
 
     def action_recv(self, payload_bytes: bytes) -> None:
         print("Action Recieved")
