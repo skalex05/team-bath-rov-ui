@@ -38,6 +38,7 @@ try:
         print("Closing")
         closeable.closing = True
         reciever.join(10)
+        time.sleep(5)
         print("Closed Successfully")
 	
 	
