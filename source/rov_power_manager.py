@@ -1,10 +1,17 @@
-from datainterface.sock_stream_recv import SockStreamRecv
-from data_classes.action_enum import ActionEnum
 import json
 import time
 import sys
 import pickle
 import subprocess
+import os 
+
+script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the script's directory
+os.chdir(script_dir)  # Change working directory to the script's location
+
+from datainterface.sock_stream_recv import SockStreamRecv
+from data_classes.action_enum import ActionEnum
+
+script = "python3 rov_interface.py"
 
 class Closeable:
 	def __init__(self):
@@ -20,7 +27,7 @@ def on_signal_recv(payload_bytes):
 		
     if action == ActionEnum.POWER_ON_ROV:
         print("Power On Signal Recieved")
-        subprocess.Popen("python3 rov_interface.py", shell=True)
+        subprocess.Popen(script, shell=True)
 
 try:
     with open("rov_config.json", "r") as f:
@@ -31,6 +38,7 @@ try:
     reciever = SockStreamRecv(closeable,config_file["rov_ip"],52528,on_signal_recv)
     reciever.start()
     print("Waiting")
+    subprocess.Popen(script, shell=True)
     try:
         while 1:
             time.sleep(0)
@@ -38,6 +46,7 @@ try:
         print("Closing")
         closeable.closing = True
         reciever.join(10)
+        time.sleep(5)
         print("Closed Successfully")
 	
 	
