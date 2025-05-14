@@ -1,7 +1,7 @@
 import struct
 import sys
 import threading
-from socket import socket, AF_INET, SOCK_STREAM, IPPROTO_TCP, TCP_NODELAY, SOCK_DGRAM
+from socket import socket, AF_INET, SOCK_STREAM, IPPROTO_TCP, TCP_NODELAY, SOCK_DGRAM, gaierror,  SOL_SOCKET, SO_REUSEADDR
 import time
 from typing import TYPE_CHECKING, Callable, Literal, Union
 
@@ -49,14 +49,15 @@ class SockStreamRecv(threading.Thread):
         try:
             data_server = socket(AF_INET, SOCK_DGRAM)
             data_server.bind((self.addr, self.port))
+            data_server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             data_server.setblocking(False)
             last_msg = time.time()
         except OSError:
             print(f"OSError in UDP SockStreamRecv {self}",e, file=sys.stderr)
             return
-        except socket.gaierror:
+        except gaierror:
             print(f"Could not resolve hostname for {self}",file=sys.stderr)
-        
+            return
         
         while not self.app.closing:
             time.sleep(0)  # Temporarily relinquish thread from CPU
@@ -99,13 +100,14 @@ class SockStreamRecv(threading.Thread):
         try:
             data_server = socket(AF_INET, SOCK_STREAM)
             data_server.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            data_server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             data_server.setblocking(False)
             data_server.bind((self.addr, self.port))
             data_server.settimeout(self.timeout)
         except OSError as e:
             print(f"OSError in TCP SockStreamRecv {self}",e, file=sys.stderr)
             return
-        except socket.gaierror:
+        except gaierror:
             print(f"Could not resolve hostname for {self}",file=sys.stderr)
             return
         while not self.app.closing:
@@ -156,7 +158,7 @@ class SockStreamRecv(threading.Thread):
                         incoming_bytes = b""
             # If the connection is broken, pass and wait to re-establish connection
             except (ConnectionError, TimeoutError) as e:
-                print(self,e)
+                pass
             except Exception as e:
                 print(f"Unhandled Exception in TCP sock stream recv {self}", e, file=sys.stderr)
             finally:
