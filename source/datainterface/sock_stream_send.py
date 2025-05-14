@@ -111,7 +111,7 @@ class SockStreamSend(threading.Thread):
             except Exception as e:
                 print(f"Exception in TCP SockStreamSend {self.addr}:{self.port}",e, file=sys.stderr)
                 continue
-
+            print(self, "Connected")
             try:
                 last_send = time.time()
                 while not self.app.closing:

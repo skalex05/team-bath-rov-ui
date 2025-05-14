@@ -247,6 +247,7 @@ class DataInterface(QObject):
             print("Received stdout was not of format <STDOUTTYPE>, <str>", file=sys.stderr)
 
     def get_controller_input(self) -> bytes:
+        print("Getting input")
         # Process all pygame events since the function was last called
         for event in pygame.event.get():
             # Handle Controller connection and disconnection
@@ -267,6 +268,7 @@ class DataInterface(QObject):
             "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
             "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
         }
+        print(new_state)
         return pickle.dumps(new_state)
 
     def close(self):
