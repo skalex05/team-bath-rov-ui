@@ -234,7 +234,7 @@ class ROVInterface:
         for video_thread in self.video_threads:
             try:
                 if video_thread.is_alive():
-                    video.join(10)
+                    video_thread.join(10)
             except Exception as e:
                 print("Exception raised when closing Video Thread:", e, file=sys.stderr)
         print("Closed Video Threads")
