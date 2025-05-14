@@ -210,7 +210,7 @@ class ROVInterface:
             else:
                 self.print_to_ui("No Longer Maintaining Depth")
         elif action == ActionEnum.POWER_OFF_ROV:
-            
+            self.print_to_ui("Closing")
             self.close()
             
     def close(self):

@@ -1,10 +1,19 @@
+import os
 import sys
 import faulthandler
 import io
 from cProfile import Profile
 from pstats import SortKey, Stats
 from contextlib import redirect_stdout, redirect_stderr
+
+script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the script's directory
+os.chdir(script_dir)  # Change working directory to the script's location
+
 from app import App
+
+
+os.environ["QT_QUICK_BACKEND"] = "software"  # Force CPU rendering (Qt Quick)
+os.environ["T_QPA_PLATFORM"] = "offscreen"  # Alternative for headless rendering (if needed)
 
 faulthandler.enable()
 
