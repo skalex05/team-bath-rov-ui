@@ -24,6 +24,10 @@ class Copilot(Window):
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "copilot.ui"), *args)
 
+        # Video Frame Index
+
+        self.video_frame_index = 0
+
         # Appearance
 
         self.v_pad = 5  # Amount of padding in Sensor Data Widget
@@ -53,6 +57,10 @@ class Copilot(Window):
         self.actuator6_value: QLabel = self.findChild(QLabel, "Actuator6Value")
 
         self.float_depth_value: QLabel = self.findChild(QLabel, "MATEFloatDepthValue")
+
+        self.DataSocketStatus: QLabel = self.findChild(QLabel, "DataSocketStatus")
+        self.StdoutSocketStatus: QLabel = self.findChild(QLabel, "StdoutSocketStatus")
+        self.ControlSocketStatus: QLabel = self.findChild(QLabel, "ControlSocketStatus")
 
         # Tasks
 
@@ -109,7 +117,7 @@ class Copilot(Window):
         self.disable_alerts_action.clicked.connect(self.disable_alerts)
 
         self.main_cam: QLabel = self.findChild(QLabel, "MainCameraView")
-        self.main_cam_display = VideoDisplay(self.main_cam, self.app, True)
+        self.main_cam_display = VideoDisplay(self.main_cam, self.video_frame_index, self.app, True)
         self.main_cam_display.pixmap_ready.connect(lambda pixmap: self.main_cam.setPixmap(pixmap))
         self.main_cam_display.on_disconnect.connect(lambda: self.main_cam.setText("Main Camera Disconnected"))
 
@@ -127,7 +135,8 @@ class Copilot(Window):
         self.task_list_contents: QWidget = self.task_list.findChild(QWidget, "TaskListContents")
         self.build_task_widgets()
 
-        self.all_alerts_disabled = False
+        self.all_alerts_disabled = True
+        self.disable_alerts_action.setChecked(True)
 
         self.app.task_checked.connect(self.on_task_change)
 
@@ -169,11 +178,22 @@ class Copilot(Window):
         self.data.rov_data_thread.on_disconnect.connect(self.on_rov_disconnect)
         self.data.rov_data_thread.on_connect.connect(self.on_rov_connect)
 
+        self.data.rov_data_thread.on_status_change.connect(
+            lambda: self.DataSocketStatus.setText(str(self.data.rov_data_thread.recv.state))
+        )
+        self.data.stdout_sock_thread.on_status_change.connect(
+            lambda: self.StdoutSocketStatus.setText(str(self.data.stdout_sock_thread.recv.state))
+        )
+        self.data.controller_input_thread.on_status_change.connect(
+            lambda: self.ControlSocketStatus.setText(str(self.data.controller_input_thread.send.state))
+        )
+
         self.data.float_data_update.connect(self.update_float_data)
         self.data.float_data_thread.on_disconnect.connect(self.on_float_disconnect)
         self.data.float_data_thread.on_connect.connect(self.on_float_connect)
 
         self.data.stdout_update.connect(self.update_stdout)
+
 
         # Alert connect
         self.data.attitude_alert.connect(self.alert_attitude)
@@ -183,7 +203,7 @@ class Copilot(Window):
         self.data.internal_temperature_alert.connect(self.alert_internal_temperature)
         self.data.float_depth_alert.connect(self.alert_float_depth)
 
-        self.main_cam_display.attach_camera_feed(self.data.camera_feeds[0])
+        self.main_cam_display.attach_camera_feed()
 
         self.video_handler_thread.start()
 
@@ -356,7 +376,7 @@ class Copilot(Window):
 
         # Display latest data for window
         str_header = f"[{source_str}] - "
-        line = str_header + line.replace("\n", "\n"+" " * len(str_header))
+        line = str_header + line.replace("\n", "\n" + " " * len(str_header))
 
         self.stdout_window.appendPlainText(line)
 

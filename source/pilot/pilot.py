@@ -20,7 +20,7 @@ def display_disconnect(label: QLabel, text: str) -> None:
 
 class Pilot(Window):
     def __init__(self, *args):
-        super().__init__(os.path.join(path_dir, "pilot3.ui"), *args)
+        super().__init__(os.path.join(path_dir, "pilot.ui"), *args)
 
         # Setup Camera Feeds
 
@@ -31,11 +31,11 @@ class Pilot(Window):
         self.secondary_2_cam: QLabel = self.findChild(QLabel, "SecondaryCameraView2")
 
         self.video_handler_thread = QThread()
-        for name, cam in zip(["Main Camera", "Secondary Camera 1", "Secondary Camera 2"],
-                             [self.main_cam, self.secondary_1_cam, self.secondary_2_cam]):
-
+        for name, cam, frame_index in zip(["Main Camera", "Secondary Camera 1", "Secondary Camera 2"],
+                                          [self.main_cam, self.secondary_1_cam, self.secondary_2_cam],
+                                          [0, 1, 2]):
             # Create Video Display and connect to signals
-            display = VideoDisplay(cam, self.app, "Main Camera" == name)
+            display = VideoDisplay(cam, frame_index, self.app, "Main Camera" == name)
             display.pixmap_ready.connect(lambda pixmap, _cam=cam: _cam.setPixmap(pixmap))
             display.on_disconnect.connect(lambda _cam=cam, _name=name: _cam.setText(f"{_name} Disconnected"))
 
@@ -58,8 +58,8 @@ class Pilot(Window):
         self.data.rov_data_update.connect(self.temp_sync)
 
         # Attach camera feeds to respective VideoDisplay objects
-        for display, feed in zip(self.cam_displays, self.data.camera_feeds):
-            display.attach_camera_feed(feed)
+        for display in self.cam_displays:
+            display.attach_camera_feed()
 
         self.video_handler_thread.start()
 

@@ -1,10 +1,13 @@
+import json
 import sys
 from io import StringIO, TextIOWrapper
 
 from threading import ThreadError
 from typing import Union
 
-from PyQt6.QtCore import pyqtSignal, QThread
+import cv2
+import numpy as np
+from PyQt6.QtCore import pyqtSignal, QThread, Qt
 
 from copilot.copilot import Copilot
 from datainterface.data_interface import DataInterface
@@ -20,7 +23,7 @@ from window import Window
 
 class App(QApplication):
     """
-        Class for storing about the overall application.
+        Class for storing data about the overall application.
     """
     task_checked = pyqtSignal(QWidget)
 
@@ -29,13 +32,16 @@ class App(QApplication):
                  redirect_stderr: Union[StringIO, TextIOWrapper],
                  argv,
                  local_test=True,
-                 use_new_camera_system=True,
                  rov_ip="localhost",
-                 float_ip="localhost"):
+                 float_ip="localhost",
+                 video_feed_count=2):
+        self.setStyle("Fusion")
+
+        self.video_feed_count = video_feed_count
+
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
 
-        self.use_new_camera_system = use_new_camera_system
         self.local_test = local_test
         if local_test:
             self.UI_IP = "localhost"
@@ -45,6 +51,79 @@ class App(QApplication):
             self.UI_IP = "0.0.0.0"
             self.ROV_IP = rov_ip
             self.FLOAT_IP = float_ip
+
+        try:
+            with open("feed_config.json", "r") as f:
+                self.feed_config = json.load(f)
+            for i in range(self.video_feed_count):
+                if str(i) not in self.feed_config:
+                    print(f"No config settings for feed {i}", file=sys.__stderr__)
+                    exit(1)
+                conf = self.feed_config[str(i)]
+                if conf["type"] == "fisheye":
+                    try:
+                        conf["calibration_data"] = np.load(conf["undistort_file"])
+
+                        for key in ["camera_matrix", "dist_coeffs", "new_camera_matrix", "roi"]:
+                            if key not in conf["calibration_data"]:
+                                raise KeyError()
+
+                        new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
+                            conf["calibration_data"]["camera_matrix"],
+                            conf["calibration_data"]["dist_coeffs"],
+                            (conf["width"], conf["height"]), alpha=0
+                        )
+
+                        conf["map1"], conf["map2"] = cv2.initUndistortRectifyMap(
+                            conf["calibration_data"]["camera_matrix"],
+                            conf["calibration_data"]["dist_coeffs"],
+                            None,
+                            new_camera_matrix,
+                            (conf["width"], conf["height"]),
+                            cv2.CV_16SC2
+                        )
+
+                    except FileNotFoundError:
+                        print(f"Path to Feed {i} Undistort File is Invalid: `{conf['undistort_file']}`", file=sys.__stderr__)
+                        exit(1)
+                    except KeyError:
+                        for key in ["undistort_file", "width", "height"]:
+                            if key not in conf:
+                                print(f"Fisheye camera feeds must have '{key}' parameter", file=sys.__stderr__)
+                        else:
+                            print("Malformed Undistort File Provided", file=sys.__stderr__)
+                        exit(1)
+
+        except FileNotFoundError:
+            print("No feed_config.json file", file=sys.__stderr__)
+            exit(1)
+        except json.decoder.JSONDecodeError:
+            print("Malformed feed_config.json file", file=sys.__stderr__)
+            exit(1)
+
+        try:
+            with open("port_bindings.json", "r") as f:
+                self.port_bindings = json.load(f)
+            ports = []
+            for binding in ["data", "float_data", "stdout", "control", "power", "action"]:
+                if binding not in self.port_bindings:
+                    raise json.decoder.JSONDecodeError(f"File is missing port for {self.port_bindings}",
+                                                       "port_bindings.json", 0)
+                if self.port_bindings[binding] in ports:
+                    raise json.decoder.JSONDecodeError(f"Port {self.port_bindings[binding]} is bound to more than once",
+                                                       "port_bindings.json", 0)
+                ports.append(binding)
+            for i in range(self.video_feed_count):
+                key = f"feed_{i}"
+                if key not in self.port_bindings:
+                    raise json.decoder.JSONDecodeError(f"Port {self.port_bindings[binding]} is bound to more than once",
+                                                       "port_bindings.json", 0)
+        except FileNotFoundError:
+            print("No port_bindings.json file", file=sys.__stderr__)
+            exit(1)
+        except json.decoder.JSONDecodeError:
+            print("Malformed port_bindings.json file", file=sys.__stderr__)
+            exit(1)
 
         super().__init__(argv)
         self.closing = False
@@ -119,7 +198,8 @@ class App(QApplication):
         # Create the data interface
         # Local redirected stdout/stderr should be passed so that it can be processed in this thread.
         self.data_interface_thread = QThread()
-        self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr)
+        self.data_interface: DataInterface = DataInterface(self, windows, redirect_stdout, redirect_stderr,
+                                                           self.video_feed_count)
         self.data_interface.moveToThread(self.data_interface_thread)
         self.data_interface_thread.start()
 

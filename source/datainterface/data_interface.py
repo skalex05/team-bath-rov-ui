@@ -4,11 +4,13 @@ import time
 from threading import Thread
 
 import cv2
+import qimage2ndarray
+import numpy as np
 
+from datainterface.qt_sock_stream_send import QSockStreamSend
 from datainterface.video_recv import VideoRecv
 from qt_sock_stream_recv import QSockStreamRecv
-from sock_stream_send import SockStreamSend
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Union
 from io import StringIO
 import pygame
 
@@ -40,11 +42,12 @@ class DataInterface(QObject):
     internal_temperature_alert = pyqtSignal()
     float_depth_alert = pyqtSignal()
 
-    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: StringIO, redirect_stderr: StringIO, local_test=True):
+    def __init__(self, app: "App", windows: Sequence["Window"], redirect_stdout: StringIO, redirect_stderr: StringIO,
+                 video_feed_count=2):
         super().__init__()
         self.app: "App" = app
         self.windows: Sequence["Window"] = windows
-        self.camera_feed_count: int = 3
+        self.video_feed_count: int = video_feed_count
 
         self.redirect_stdout = redirect_stdout
         self.redirect_stderr = redirect_stderr
@@ -78,8 +81,8 @@ class DataInterface(QObject):
 
         # Camera Feeds
 
-        self.camera_feeds: Sequence[VideoFrame] = []
-        self.camera_threads: [QSockStreamRecv] = []
+        self.camera_frames: [VideoFrame] = []
+        self.video_threads: [QSockStreamRecv] = []
 
         # Controller State
 
@@ -92,49 +95,59 @@ class DataInterface(QObject):
         self.min_depth = 0.0
         self.max_depth = 5.0
 
-        def on_camera_feed_disconnect(i):
-            self.camera_feeds[i] = None
-            self.video_stream_update.emit(i)
-
         # Video Receiver Threads
-        for i in range(self.camera_feed_count):
-            self.camera_feeds.append(VideoFrame())
-            if self.app.use_new_camera_system:
-                cam_thread = VideoRecv(self.app, [self.app.ROV_IP, "127.0.0.1"][self.app.ROV_IP == "localhost"], 52524 - i)
-            else:
-                cam_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52524 - i,
-                                             buffer_size=65536,
-                                             protocol="udp")
-            # Connect signals
-            if self.app.use_new_camera_system:
-                cam_thread.on_recv.connect(lambda payload, j=i: self.on_video_stream_sock_recv(payload, j))
-            else:
-                cam_thread.on_recv.connect(lambda payload_bytes, j=i: self.on_video_stream_sock_recv(pickle.loads(payload_bytes), j))
-            cam_thread.on_disconnect.connect(lambda j=i: self.on_camera_feed_disconnect(j))
-            self.camera_threads.append(cam_thread)
+        cam_index_offset = 0
+        for video_feed_index in range(self.video_feed_count):
+            # Get the config data for this video feed
+            feed_config = self.app.feed_config[str(video_feed_index)]
+            port = self.app.port_bindings[f"feed_{video_feed_index}"]
+
+            # A stereo video feed will produce two camera frames
+            if feed_config["type"] == "stereo":
+                self.camera_frames.append(VideoFrame())
+            self.camera_frames.append(VideoFrame())
+
+            # Create a receiver thread for this video feed
+            cam_thread = VideoRecv(self.app, [self.app.ROV_IP, "127.0.0.1"][self.app.ROV_IP == "localhost"],
+                                   port, video_feed_index)
+
+            # Connect a signal to pass video feed data to the data-interface's handler
+            cam_thread.on_recv.connect(
+                lambda payload, cam=video_feed_index + cam_index_offset, feed=video_feed_index:
+                self.on_video_stream_sock_recv(payload, cam, feed))
+
+            # Connect a signal for when a video feed disconnects
+            cam_thread.on_disconnect.connect(
+                lambda cam=video_feed_index + cam_index_offset, feed=video_feed_index:
+                self.on_camera_feed_disconnect(cam, feed))
+
+            # Camera indexes will be offset from the video feed index by however many stereo feeds are connected
+            if feed_config["type"] == "stereo":
+                cam_index_offset += 1
+            self.video_threads.append(cam_thread)
             cam_thread.start()
 
         # ROV Data Thread
-        self.rov_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52525)
+        self.rov_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, self.app.port_bindings["data"])
         self.rov_data_thread.on_recv.connect(self.on_rov_data_sock_recv)
         self.rov_data_thread.start()
 
         # ROV Float Thread
-        self.float_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52625)
+        self.float_data_thread = QSockStreamRecv(self.app, self.app.UI_IP, self.app.port_bindings["float_data"])
         self.float_data_thread.on_recv.connect(self.on_float_data_sock_recv)
         self.float_data_thread.start()
 
         # STDOUT Socket Thread
         # This thread processes stdout that has been received across a socket
-        self.stdout_sock_thread = QSockStreamRecv(self.app, self.app.UI_IP, 52535)
+        self.stdout_sock_thread = QSockStreamRecv(self.app, self.app.UI_IP, self.app.port_bindings["stdout"])
         self.stdout_sock_thread.on_recv.connect(self.on_stdout_sock_recv)
         self.stdout_sock_thread.start()
 
         # Controller Input Thread
         # Collects and sends input to the ROV
         print("Creating sock stream send")
-        self.controller_input_thread = SockStreamSend(self.app, self.app.ROV_IP, 52526, 0.01,
-                                                      self.get_controller_input)
+        self.controller_input_thread = QSockStreamSend(self.app, self.app.ROV_IP, self.app.port_bindings["control"],
+                                                       self.get_controller_input, 0.01)
         self.controller_input_thread.start()
 
         self.timer = QTimer(self)
@@ -145,11 +158,34 @@ class DataInterface(QObject):
         self.internal_temperature_alert_once = False
         self.float_depth_alert_once = False
 
-    def on_camera_feed_disconnect(self, i) -> None:
-        # Wait until the VideoFrame is not being accessed before overwriting the frame
-        with self.camera_feeds[i].lock:
-            self.camera_feeds[i].frame = None
-            self.camera_feeds[i].new_frame.emit()
+    def export_rov_data(self):
+        data = ROVData()
+        data.attitude = self.attitude
+        data.angular_acceleration = self.angular_acceleration
+        data.angular_velocity = self.angular_velocity
+        data.acceleration = self.acceleration
+        data.velocity = self.velocity
+        data.depth = self.depth
+        data.ambient_temperature = self.ambient_temperature
+        data.ambient_pressure = self.ambient_pressure
+        data.internal_temperature = self.internal_temperature
+        data.cardinal_direction = self.cardinal_direction
+        data.grove_water_sensor = self.grove_water_sensor
+
+        return data
+
+    def on_camera_feed_disconnect(self, cam: int, feed: int) -> None:
+        feed_config = self.app.feed_config[str(feed)]
+
+        # Send disconnection signal to both camera frames if the video feed was providing stereo data
+        if feed_config["type"] == "stereo":
+            with self.camera_frames[cam + 1].lock:
+                self.camera_frames[cam + 1].frame = None
+                self.camera_frames[cam + 1].new_frame.emit()
+
+        with self.camera_frames[cam].lock:
+            self.camera_frames[cam].frame = None
+            self.camera_frames[cam].new_frame.emit()
 
     def is_rov_connected(self) -> bool:
         return self.rov_data_thread.is_connected()
@@ -187,7 +223,7 @@ class DataInterface(QObject):
             self.internal_temperature_alert.emit()
 
         self.rov_data_update.emit()
-        
+
     def on_float_data_sock_recv(self, payload_bytes: bytes) -> None:
         float_data: FloatData = pickle.loads(payload_bytes)
         for attr in float_data.__dict__:
@@ -198,32 +234,72 @@ class DataInterface(QObject):
             self.float_depth_alert_once = True
             self.float_depth_alert.emit()
 
-    def on_video_stream_sock_recv(self, payload: ndarray, i: int) -> None:
+    def on_video_stream_sock_recv(self, frame: Union[ndarray, None], cam: int, feed: int) -> None:
         # Process the raw video bytes received
-        if payload is None:
-            self.on_camera_feed_disconnect(i)
+        if frame is None:
+            print("disconnect")
+            self.on_camera_feed_disconnect(cam, feed)
             return
 
-        if self.app.use_new_camera_system:
-            frame = payload
-        else:
-            # Decode the frame back into a numpy pixel array
-            frame = cv2.imdecode(payload, 1)
-        h, w, _ = frame.shape
+        if not frame.flags['C_CONTIGUOUS']:
+            frame = np.ascontiguousarray(frame)
 
+        frame_h, frame_w, _ = frame.shape
+
+        feed_config = self.app.feed_config[str(feed)]
+
+        if feed_config["type"] == "stereo":
+            # Code for efficiently seperating video feed into the left and right cameras
+            frame_w //= 2
+            left_cam = frame[:, :frame_w]
+            right_cam = frame[:, frame_w:]
+
+            # Swap Red and Blue colour channels
+            left_cam = left_cam[..., [2, 1, 0]]
+            right_cam = right_cam[..., [2, 1, 0]]
+
+            left_cam = qimage2ndarray.array2qimage(left_cam)
+            right_cam = qimage2ndarray.array2qimage(right_cam)
+
+            #  Wait until no other threads are accessing the VideoFrame for the Left Camera
+            with self.camera_frames[cam].lock:
+                self.camera_frames[cam].frame = left_cam
+                self.camera_frames[cam].new_frame.emit()
+
+            #  Wait until no other threads are accessing the VideoFrame for the Right Camera
+            with self.camera_frames[cam + 1].lock:
+                self.camera_frames[cam + 1].frame = right_cam
+                self.camera_frames[cam + 1].new_frame.emit()
+
+            return
+        elif feed_config["type"] == "fisheye":
+            # Load saved calibration data
+            undistorted_frame = cv2.remap(frame, feed_config["map1"], feed_config["map2"],
+                                          interpolation=cv2.INTER_LINEAR)
+
+            # Crop the valid region
+            x, y, w, h = feed_config["calibration_data"]["roi"]
+            undistorted_frame = undistorted_frame[y:y + h, x:x + w]
+
+            frame = undistorted_frame
+
+        elif not feed_config["type"] == "default":
+            print(f"Unrecognised camera feed type '{feed_config['type']}' in feed_config.json")
+            return
         # Generate the new QImage for the feed
-        frame = QImage(frame, w, h, QImage.Format.Format_BGR888)
+        frame = QImage(frame, frame_w, frame_h, QImage.Format.Format_BGR888)
 
         #  Wait until no other threads are accessing the VideoFrame
-        with self.camera_feeds[i].lock:
-            self.camera_feeds[i].frame = frame
-            self.camera_feeds[i].new_frame.emit()
+        with self.camera_frames[cam].lock:
+            self.camera_frames[cam].frame = frame
+            self.camera_frames[cam].new_frame.emit()
 
     def f_stdout_ui_thread(self) -> None:
         while not self.app.closing:
             time.sleep(0)
             # Process redirected stdout
             self.redirect_stdout.flush()
+            self.redirect_stderr.flush()
             for redirect, source, type_ in ((self.redirect_stdout, sys.__stdout__, StdoutType.UI),
                                             (self.redirect_stderr, sys.__stderr__, StdoutType.UI_ERROR)):
                 # If stdout has been redirected, send it to redirected and source location
@@ -239,10 +315,14 @@ class DataInterface(QObject):
     def on_stdout_sock_recv(self, payload_bytes: bytes) -> None:
         # Receive stdout from socket
         try:
-            msg: tuple[StdoutType, str] = pickle.loads(payload_bytes)
-            source, line = msg
-            self.stdout_update.emit(source, line)
-            print(f"[{source.name}] {line}", file=sys.__stdout__)
+            lines: [tuple[StdoutType, str]] = pickle.loads(payload_bytes)
+            for line in lines:
+                source, line = line
+
+                self.stdout_update.emit(source, line)
+
+                print(f"[{source.name}] {line}",
+                      file=(sys.__stdout__ if source != StdoutType.ROV_ERROR else sys.__stderr__))
         except ValueError:
             print("Received stdout was not of format <STDOUTTYPE>, <str>", file=sys.stderr)
 
@@ -267,7 +347,6 @@ class DataInterface(QObject):
             "buttons": [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())],
             "hats": [self.joystick.get_hat(i) for i in range(self.joystick.get_numhats())]
         }
-        print(new_state)
         return pickle.dumps(new_state)
 
     def close(self):
@@ -282,9 +361,8 @@ class DataInterface(QObject):
         print("Joining ui stdout thread", file=sys.__stdout__, flush=True)
         self.stdout_ui_thread.join(10)
         print("Joining controller thread", file=sys.__stdout__, flush=True)
-        self.controller_input_thread.join(10)
+        self.controller_input_thread.wait(10)
         print("Joining video stream threads", file=sys.__stdout__, flush=True)
-        for video_stream_thread in self.camera_threads:
+        for video_stream_thread in self.video_threads:
             video_stream_thread.wait(10)
         print("Data Interface closed successfully", file=sys.__stdout__, flush=True)
-
