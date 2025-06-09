@@ -1,14 +1,42 @@
 # This script creates a simulated version of the ROV that the UI can interact with
+import io
 import json
 import os
 import pickle
 import sys
 import time
-from random import random, choice
+from contextlib import redirect_stderr, redirect_stdout
 from threading import Thread
 import subprocess
 import psutil
-import serial
+
+from data_classes.vector3 import Vector3
+
+try:
+    import serial
+    import board
+    import busio
+    # sudo pip3 install python3-adafruit-circuitpython-bno055 --break-system-packages
+
+    import adafruit_bno055
+    import traceback
+except ModuleNotFoundError as e:
+    print("Raspberry Pi Modules Could not be located - likely because running locally", file=sys.stderr)
+    print("Otherwise, ensure that all modules are installed:", e)
+    
+
+try:
+    # Initialize I2C bus
+    i2c = busio.I2C(board.SCL, board.SDA)
+
+    # Initialize BNO055 sensor
+    imu_sensor = adafruit_bno055.BNO055_I2C(i2c)
+
+    # Optional: Set operation mode (default is NDOF which is good for orientation)
+    # sensor.mode = adafruit_bno055.NDOF_MODE
+except Exception as e:
+    imu_sensor = None
+    print("Couldn't connect to I2C for IMU sensor", e)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the script's directory
 os.chdir(script_dir)  # Change working directory to the script's location
@@ -16,15 +44,10 @@ os.chdir(script_dir)  # Change working directory to the script's location
 from data_classes.action_enum import ActionEnum
 from rov_float_data_structures.rov_data import ROVData
 from data_classes.stdout_type import StdoutType
-from datainterface.video_stream import VideoStream
 from datainterface.sock_stream_recv import SockStreamRecv
 from datainterface.sock_stream_send import SockStreamSend, SockSend
 
-if os.name == "nt":
-    from pygrabber.dshow_graph import FilterGraph
 
-    graph = FilterGraph()
-    camera_devices = graph.get_input_devices()
 
 thruster_matrix = [
     [0, 0, -0.707, 0.707, 0.707, -0.707],  # x
@@ -38,20 +61,39 @@ thruster_matrix = [
 
 # Available Port Numbers: 49152-65535
 class ROVInterface:
-    def __init__(self, ui_ip=None, rov_ip=None, local_test=True, camera_count=3, use_new_camera_system=True,
-                 uart_port='/dev/ttyAMA0', uart_baud=115200):
+    def __init__(self, redirected_stdout, redirected_stderr, ui_ip=None, rov_ip=None, local_test=True, camera_data=None, port_bindings=None,
+                 uart_port='/dev/ttyAMA0', uart_baud=115200, controller_test=False, data_poll=0.1, imu_sensor=None, show_camera_stdout=True):
+        if camera_data is None:
+            camera_data = []
+        if port_bindings is None:
+            port_bindings = {}
         self.local_test = local_test
-        self.use_new_camera_system = use_new_camera_system
-        self.camera_count = camera_count
+        self.controller_test = controller_test
+        self.camera_data = camera_data
+        self.port_bindings = port_bindings
+        self.camera_count = len(camera_data)
+        self.redirected_stdout = redirected_stdout
+        self.redirected_stderr = redirected_stderr
+        self.show_camera_stdout = show_camera_stdout
+
+        # Sensors/Arduino Connections
+
+        self.data_poll = data_poll
         self.uart_port = uart_port
         self.uart_baud = uart_baud
         self.uart = None
+        self.imu_sensor = imu_sensor
+
+        if self.imu_sensor is None:
+            print("No IMU Sensor Detected")
 
         # ROV state attributes
 
         self.closing = False
+        self.closed = False
         self.hold_depth = 0
         self.maintain_depth = False
+        self.next_send_controller_data = time.time()
 
         if self.local_test:
             self.UI_IP = "localhost"
@@ -69,93 +111,148 @@ class ROVInterface:
                 "Please set rov_ip parameter in rov_config.json of ROVInterface to the IP of the ROV")
 
         print(
-            f"Creating ROV Interface:\n{self.UI_IP=}\n{self.ROV_IP=}\n{self.use_new_camera_system=}\n{self.local_test=}\n{camera_count=}")
+            f"Creating ROV Interface:\n{self.UI_IP=}\n{self.ROV_IP=}\n{self.local_test=}\n{self.camera_count=}")
 
         self.rov_data = ROVData()
         self.i = 100  # temp variable
 
-        self.print_to_ui("Powering On...")
+        print("Powering On...")
 
-        print(f"Binding Data Thread to {self.UI_IP} : {52525}")
+        print(f"Binding Data Thread to {self.UI_IP} : {self.port_bindings['data']}")
 
-        self.data_thread = SockStreamSend(self, self.UI_IP, 52525, 0.05, self.get_rov_data, None)
+        self.data_thread = SockStreamSend(self, self.UI_IP, self.port_bindings["data"], self.data_poll,
+                                          self.get_rov_data,
+                                          on_connect=lambda: print("Data Thread Connected"),
+                                          on_disconnect=lambda: print("Data Thread Disconnected")
+                                          )
         self.data_thread.start()
+
+        self.data_poll_thread = Thread(target=self.poll_rov_data)
+        self.data_poll_thread.start()
+
+        self.stdout_thread = SockStreamSend(self, self.UI_IP, self.port_bindings["stdout"], 0,
+                                            self.process_stdout,
+                                            on_connect=lambda: print("Stdout Thread Connected"),
+                                            on_disconnect=lambda: print("Stdout Thread Disconnected")
+                                            )
+        self.stdout_thread.start()
 
         self.video_streams = None
         self.video_processes: [subprocess.Popen | None] = [None for _ in range(self.camera_count)]
-        if not self.use_new_camera_system:
-            self.video_streams = [VideoStream(i) for i in range(self.camera_count)]
 
         self.video_threads = []
         for i in range(self.camera_count):
             print("Binding video threads")
-            if self.use_new_camera_system:
-                print(f"\tBinding to {'127.0.0.1' if self.local_test else self.UI_IP} : {52524 - i}")
-                video_thread = Thread(target=self.video_send,
-                                      kwargs={"addr": "127.0.0.1" if self.local_test else self.UI_IP,
-                                              "port": 52524 - i, "i": i})
-            else:
-                print(f"\tBinding to {'localhost' if self.local_test else self.UI_IP} : {52524 - i}")
-                video_thread = SockStreamSend(self, "localhost" if self.local_test else self.UI_IP, 52524 - i, 0.0333,
-                                              self.video_streams[i].get_camera_frame, None, protocol="udp")
+            port = self.port_bindings[f"feed_{i}"]
+            print(f"\tBinding to {'127.0.0.1' if self.local_test else self.UI_IP} : {port}")
+            video_thread = Thread(target=self.video_send,
+                                  kwargs={"addr": "127.0.0.1" if self.local_test else self.UI_IP,
+                                          "port": port, "i": i})
             video_thread.start()
 
             self.video_threads.append(video_thread)
 
-        self.stdout_thread = Thread(target=self.rov_stdout_thread)
-        self.stdout_thread.start()
+        print(f"Binding Input Thread to {self.ROV_IP} : {self.port_bindings['control']}")
 
-        if not self.use_new_camera_system:
-            self.print_to_ui("ROV is using old camera system", error=True)
-
-        print(f"Binding Input Thread to {self.ROV_IP} : {52526}")
-
-        self.input_thread = SockStreamRecv(self, self.ROV_IP, 52526, self.controller_input_recv,
-                                           lambda: self.print_to_ui("Controller Disconnected From ROV", True))
+        self.input_thread = SockStreamRecv(self, self.ROV_IP, self.port_bindings["control"], self.controller_input_recv,
+                                           on_connect=lambda: print("Controller Input Thread Connected"),
+                                           on_disconnect=lambda: print("Controller Input Thread Disconnected")
+                                           )
         self.input_thread.start()
 
-        print(f"Binding Action Thread to {self.ROV_IP} : {52527}")
+        print(f"Binding Action Thread to {self.ROV_IP} : {self.port_bindings['action']}")
 
-        self.action_thread = SockStreamRecv(self, self.ROV_IP, 52527, self.action_recv)
+        self.action_thread = SockStreamRecv(self, self.ROV_IP, self.port_bindings["action"], self.action_recv,
+                                            on_connect=lambda: print("Action Thread Connected"),
+                                            on_disconnect=lambda: print("Action Thread Disconnected"))
         self.action_thread.start()
 
-        self.print_to_ui("Powered On!")
+        print("Powered On!")
 
-    def print_to_ui(self, msg, error=False) -> None:
-        if error:
-            payload = (StdoutType.ROV_ERROR, msg)
-        else:
-            payload = (StdoutType.ROV, msg)
-        SockSend(self, self.UI_IP, 52535, payload)
+    def process_stdout(self):
+        # Process redirected stdout
+        payload = []
+        while not self.closing and len(payload) == 0:
+            time.sleep(0)
+            redirected_stdout_io.flush()
+            redirected_stderr_io.flush()
+
+            for redirect, source, type_ in ((redirected_stdout_io, sys.__stdout__, StdoutType.ROV),
+                                               (redirected_stderr_io, sys.__stderr__, StdoutType.ROV_ERROR)):
+                # If stdout has been redirected, send it to redirected and source location
+                if redirect != source:
+                    lines = redirect.getvalue().splitlines()
+                    for line in lines:
+                        payload.append((type_, line))
+                        print(line, file=source)
+                    # Clean up redirect buffer
+                    redirect.seek(0)
+                    redirect.truncate(0)
+            return pickle.dumps(payload)
 
     def get_rov_data(self) -> bytes:
-        self.rov_data.randomise()
-        self.rov_data.ambient_pressure = self.i
-        self.i += 0.1
-        self.i %= 50
-        self.i += 100
-
-        if self.rov_data.attitude.x < -180:
-            self.rov_data.attitude.x = 360 + self.rov_data.attitude.x
-        if self.rov_data.attitude.x > 180:
-            self.rov_data.attitude.x = -(360 + self.rov_data.attitude.x)
-
-        if self.rov_data.attitude.y < -180:
-            self.rov_data.attitude.y = 360 + self.rov_data.attitude.y
-        if self.rov_data.attitude.y > 180:
-            self.rov_data.attitude.y = -(360 + self.rov_data.attitude.y)
-
-        if self.rov_data.attitude.z < -180:
-            self.rov_data.attitude.z = 360 + self.rov_data.attitude.z
-        if self.rov_data.attitude.z > 180:
-            self.rov_data.attitude.z = -(360 + self.rov_data.attitude.z)
-
-        self.rov_data.depth += 0.01
-        self.rov_data.depth %= 5
-
-        if self.maintain_depth:
-            self.rov_data.depth = self.hold_depth
         return pickle.dumps(self.rov_data)
+
+    def poll_rov_data(self) -> None:
+        delta_time = 0
+        while not self.closing:
+            st = time.time()
+            self.rov_data.randomise()
+
+            self.rov_data.ambient_pressure = self.i
+            self.i += 0.1
+            self.i %= 50
+            self.i += 100
+
+            if self.imu_sensor is not None:
+                try:
+                    euler = self.imu_sensor.euler
+                    acceleration = self.imu_sensor.acceleration
+                    gyro = self.imu_sensor.gyro
+                    temp = self.imu_sensor.temperature
+                    if euler is not None:
+                        self.rov_data.attitude = Vector3(*euler)
+                    if acceleration is not None:
+                        self.rov_data.acceleration = Vector3(*acceleration) + Vector3(0, 0, -9)
+                        self.rov_data.velocity += self.rov_data.acceleration * delta_time
+                    if gyro is not None:
+                        self.rov_data.angular_acceleration = Vector3(*gyro)
+                        self.rov_data.angular_velocity += Vector3(*gyro) * delta_time
+                    if temp is not None:
+                        self.rov_data.internal_temperature = temp
+                except OSError:
+                    pass
+                except Exception as e:
+                    traceback.print_exception(e, file=sys.stderr)
+
+            # if self.rov_data.attitude.x < -180:
+            #     self.rov_data.attitude.x = 360 + self.rov_data.attitude.x
+            # if self.rov_data.attitude.x > 180:
+            #     self.rov_data.attitude.x = -(360 + self.rov_data.attitude.x)
+            #
+            # if self.rov_data.attitude.y < -180:
+            #     self.rov_data.attitude.y = 360 + self.rov_data.attitude.y
+            # if self.rov_data.attitude.y > 180:
+            #     self.rov_data.attitude.y = -(360 + self.rov_data.attitude.y)
+            #
+            # if self.rov_data.attitude.z < -180:
+            #     self.rov_data.attitude.z = 360 + self.rov_data.attitude.z
+            # if self.rov_data.attitude.z > 180:
+            #     self.rov_data.attitude.z = -(360 + self.rov_data.attitude.z)
+
+            self.rov_data.depth += 0.01
+            self.rov_data.depth %= 5
+
+            if self.maintain_depth:
+                self.rov_data.depth = self.hold_depth
+
+            delta_time = time.time() - st
+            sleep_time = delta_time
+            if sleep_time < 0:
+                sleep_time = 0
+            elif sleep_time > self.data_poll:
+                sleep_time = self.data_poll
+            time.sleep(sleep_time)
 
     def kill_video_process(self, i):
         process = self.video_processes[i]
@@ -170,22 +267,21 @@ class ROVInterface:
 
         self.video_processes[i] = None
 
-    def rov_stdout_thread(self) -> None:
-        rov_msgs = ["Swimming"]
-
-        rov_errs = ["I'm sinking"]
-
-        while not self.closing:
-            if random() < 0.9:
-                self.print_to_ui(choice(rov_msgs))
-            else:
-                self.print_to_ui(choice(rov_errs), error=True)
-
-            time.sleep(3)
-
     def controller_input_recv(self, payload_bytes: bytes) -> None:
-        global thruster_matrix
+        # Keep this code as it is!!!
         controller_data = pickle.loads(payload_bytes)
+        if self.controller_test:
+
+            
+            if time.time() - self.next_send_controller_data > 0.1:
+                print(f"{time.time():.2f} Controller Input:", controller_data)
+                self.next_send_controller_data = time.time()
+                
+            return
+
+        # Change the code here to modify how the controller data is recieved
+
+        global thruster_matrix
         if controller_data is None:
             return
 
@@ -232,39 +328,35 @@ class ROVInterface:
         if self.uart.is_open:
             self.uart.write(data_str.encode())
         else:
-            self.print_to_ui("Serial Connection to ESP32 Closed Unexpectedly")
+            print("Serial Connection to ESP32 Closed Unexpectedly")
 
     def action_recv(self, payload_bytes: bytes) -> None:
-        print("Action Recieved")
+        print("Action Received")
         action = pickle.loads(payload_bytes)
         args = tuple()
         print(action)
         if type(action) is tuple:
             action, *args = action
         if action == ActionEnum.REINIT_CAMS:
-            if self.use_new_camera_system:
-                for i in range(self.camera_count):
-                    self.kill_video_process(i)
-            else:
-                for stream in self.video_streams:
-                    stream.start_init_camera_feed()
-            self.print_to_ui(f"Camera Feeds Re-initialised")
+            for i in range(self.camera_count):
+                self.kill_video_process(i)
+            print(f"Camera Feeds Re-initialised")
         elif action == ActionEnum.MAINTAIN_ROV_DEPTH:
             self.maintain_depth = args[0]
 
             if self.maintain_depth:
-                self.print_to_ui(f"Maintaining Depth At {args[1]:.2f} m")
+                print(f"Maintaining Depth At {args[1]:.2f} m")
                 self.hold_depth = args[1]
             else:
-                self.print_to_ui("No Longer Maintaining Depth")
+                print("No Longer Maintaining Depth")
         elif action == ActionEnum.POWER_OFF_ROV:
-            self.print_to_ui("Closing")
+            print("Closing")
             self.close()
 
     def close(self):
         print("Closing ROV Interface")
         self.closing = True
-        self.print_to_ui("Turning Off...")
+        print("Turning Off...")
         try:
             if self.action_thread.is_alive():
                 self.action_thread.join(10)
@@ -299,16 +391,23 @@ class ROVInterface:
         print("Closed Data Thread")
 
         try:
-            if self.stdout_thread.is_alive():
-                self.stdout_thread.join(10)
+            if self.data_poll_thread.is_alive():
+                self.data_poll_thread.join(10)
         except Exception as e:
-            print("Exception raised when closing STDOUT Thread:", e, file=sys.stderr)
-        print("Closed STDOUT Thread")
+            print("Exception raised when closing Data Poll Thread:", e, file=sys.stderr)
+        print("Closed Data Poll Thread")
 
         print("Closed")
+        self.closed = True
 
     def video_send(self, addr: str, port: int, i: int) -> None:
+        first = True
         while not self.closing:
+            if not first:
+                print(f"Restarting Video Process on {addr}:{port}")
+            else:
+                print(f"Starting Video Process on {addr}:{port}")
+            first = False
             self.kill_video_process(i)
             time.sleep(1)
             if self.local_test:
@@ -330,39 +429,63 @@ class ROVInterface:
                                f" --bitrate 30000000"
                                f" -o udp://{addr}:{port}")
             else:
-                process = (f"rpicam-vid -t {i} -n --width 2028 --height 1080"
-                           # f" --codec libav --libav-format mpegts"
-                           f" --codec h264"
-                           f" --bitrate 6000000"
-                           # f" --profile high --level 4.2"
-                           f" --intra 1"
-                           f" --framerate 20"
+                process = (f"rpicam-vid -t 0 --camera {i} -n "
+                           f" --width {self.camera_data[i]['width']} --height {self.camera_data[i]['height']}"
+                           f" --codec libav --libav-format mpegts"
+                           f" --bitrate {self.camera_data[i]['bitrate']}"
+                           f" --framerate {self.camera_data[i]['framerate']}"
+                           f" --intra {self.camera_data[i]['framerate']}"
                            " --low-latency"
                            f" -o udp://{addr}:{port}")
-            process = subprocess.Popen(process, shell=True)
+            print(process)
+            if self.show_camera_stdout:
+                process = subprocess.Popen(process, shell=True)
+                
+            else:
+                process = subprocess.Popen(process, shell=True,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       stdin=subprocess.PIPE)
             self.video_processes[i] = process
             time.sleep(1)
             while process.poll() is None and not self.closing:
                 pass
+            print("Video Process Died")
 
 
 try:
-    with open("rov_config.json", "r") as f:
-        config_file = json.load(f)
-    print(config_file)
-    interface = ROVInterface(**config_file)
+    stderr_io = io.StringIO()
+    with redirect_stderr(stderr_io) as redirected_stderr_io:
+        stdout_io = io.StringIO()
+        with redirect_stdout(stdout_io) as redirected_stdout_io:
+            with open("rov_config.json", "r") as f:
+                config_file = json.load(f)
 
-    while not interface.closing:
-        time.sleep(0)
+            if os.name == "nt":
+                print("Running rov_interface on Windows - Assuming local")
+                from pygrabber.dshow_graph import FilterGraph
+
+                graph = FilterGraph()
+                camera_devices = graph.get_input_devices()
+
+                config_file["local_test"] = True
+
+            print(config_file)
+
+            interface = ROVInterface(redirected_stdout_io, redirected_stderr_io, **config_file, imu_sensor=imu_sensor)
+
+            while not interface.closed:
+                time.sleep(0)
+
 
 except FileNotFoundError:
     print((
-              "Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md.\nThis file should look like:\n"
-              "{\n"
-              '\t"ui_ip": <YOUR LAPTOP\'s IP>",\n'
-              '\t"local_test": false,\n'
-              '\t"camera_count": 3\n'
-              '}'),
-          file=sys.stderr)
+        "Please create rov_config.json to the specification in ROV_INTERFACE_INSTALL.md.\nThis file should look like:\n"
+        "{\n"
+        '\t"ui_ip": <YOUR LAPTOP\'s IP>",\n'
+        '\t"local_test": false,\n'
+        '\t"camera_count": 3\n'
+        '}'),
+        file=sys.stderr)
 except json.decoder.JSONDecodeError:
     print("Malformed rov_config.json file", file=sys.stderr)

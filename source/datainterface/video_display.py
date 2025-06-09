@@ -1,8 +1,15 @@
+import sys
+
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPainter, QFont, QColor
 from PyQt6.QtWidgets import QLabel
 
 from datainterface.video_frame import VideoFrame
+
+import typing
+
+if typing.TYPE_CHECKING:
+    from app import App
 
 # This class is used to generate a pixmap for a given UI label.
 # The UI can connect to the pixmap_ready signal to update the pixmap displayed on a label.
@@ -17,8 +24,9 @@ class VideoDisplay(QObject):
     pixmap_ready = pyqtSignal(QPixmap)
     on_disconnect = pyqtSignal()
 
-    def __init__(self, label: QLabel, app=None, overlay=False, vertical_aov=90):
+    def __init__(self, label: QLabel, frame_index, app: "App" = None, overlay=False, vertical_aov=90):
         self.label = label
+        self.frame_index = frame_index
         self.camera_feed: VideoFrame | None = None
         self.app = app
         self.overlay = overlay
@@ -29,7 +37,13 @@ class VideoDisplay(QObject):
 
         super().__init__()
 
-    def attach_camera_feed(self, camera_feed: VideoFrame) -> None:
+    def attach_camera_feed(self) -> None:
+        camera_frame_count = len(self.app.data_interface.camera_frames)
+        if self.frame_index >= camera_frame_count:
+            print(f"Frame Index {self.frame_index} out of range {0} - {camera_frame_count-1}. "
+                  f"Increase the camera feed count to avoid this", file=sys.stderr)
+            return
+        camera_feed = self.app.data_interface.camera_frames[self.frame_index]
         # Remove any old connections to the new frame signal if reattaching camera feed
         if self.camera_feed:
             self.camera_feed.new_frame.disconnect(self.update_frame)
@@ -39,6 +53,7 @@ class VideoDisplay(QObject):
         self.on_disconnect.emit()
 
     def update_frame(self) -> None:
+
         if self.camera_feed is None:
             raise AttributeError("A Camera Feed Is Not Attached")
         # Wait until VideoFrame is free

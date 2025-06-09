@@ -30,6 +30,8 @@ class Window(QFrame):
         # Position the window and remove the default window frame
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setGeometry(screen.availableGeometry())
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, False)
 
     def attach_nav_bar(self, dock) -> None:
         self.nav = NavBar(self, dock)

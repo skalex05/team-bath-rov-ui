@@ -1,10 +1,14 @@
+import math
 import os
+import pickle
 import sys
 import shutil
 import time
+from datetime import datetime
 from pathlib import Path
 
 import cv2
+import numpy as np
 import pandas as pd
 from PyQt6.QtCore import QThreadPool, QUrl, Qt, QSizeF, QTimer, QFileSystemWatcher, pyqtSignal
 from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -18,7 +22,8 @@ from PyQt6.QtMultimedia import QMediaPlayer
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 
 from grapher.graph_widget import GraphWidget
-from grapher.multi_combo_box import MultiSelectComboBox
+from grapher.photo_sphere_viewer import PhotosphereViewer
+from multi_select_widget import MultiSelectWidget
 from rov_float_data_structures.float_data import FloatData
 from rov_float_data_structures.rov_data import ROVData
 from data_classes.vector3 import Vector3 as Vector3
@@ -36,6 +41,8 @@ path_dir = os.path.dirname(os.path.realpath(__file__))
 class Grapher(Window):
     recording_update = pyqtSignal()
     recording_end = pyqtSignal()
+    photosphere_creation_progress_update = pyqtSignal(int)
+    photosphere_creation_complete = pyqtSignal(str)
 
     def __init__(self, *args):
         super().__init__(os.path.join(path_dir, "grapher.ui"), *args)
@@ -56,39 +63,59 @@ class Grapher(Window):
         self.graph_closed()
 
         self.RecordedFieldsContainer: QFrame = self.findChild(QFrame, "RecordedFieldsContainer")
-        self.RecordedFieldsLabel: QLabel = self.findChild(QLabel, "SelectedFieldsLabel")
 
         self.StartRecordingButton: QPushButton = self.findChild(QPushButton, "StartRecording")
         self.StartRecordingButton.clicked.connect(self.toggle_recording)
 
         self.InputRecordingContainer: QFrame = self.findChild(QFrame, "InputRecordingContainer")
-        self.InputRecording: QComboBox = self.findChild(QComboBox, "InputRecording")
-        self.InputRecording.currentTextChanged.connect(self.display_field_axes_options)
+        self.InputRecordingComboContainer: QFrame = self.findChild(QFrame, "InputRecordingComboContainer")
+        self.InputRecording = MultiSelectWidget(self.InputRecordingContainer, single_selection=True, scroll_height=50)
+        self.InputRecordingComboContainer.layout().addWidget(self.InputRecording)
+        self.InputRecording.item_selection_changed.connect(self.display_field_axes_options)
 
         self.LiveGraph: QCheckBox = self.findChild(QCheckBox, "LiveGraph")
         self.LiveGraph.setEnabled(False)
 
         def live_graph_change(state):
             if state == Qt.CheckState.Checked:
-                self.InputRecordingContainer.hide()
+                self.InputRecording.set_checkboxes_enabled(False)
             else:
-                self.InputRecordingContainer.show()
+                self.InputRecording.set_checkboxes_enabled(True)
 
             self.display_field_axes_options()
 
         self.LiveGraph.checkStateChanged.connect(live_graph_change)
 
         self.XAxisSelector: QFrame = self.findChild(QFrame, "XAxisSelector")
-        self.XAxis: QComboBox = self.findChild(QComboBox, "XAxis")
-        self.YAxisSelector: QFrame = self.findChild(QFrame, "YAxisSelector")
-        self.YAxis: QComboBox = self.findChild(QComboBox, "YAxis")
-        self.ZAxisSelector: QFrame = self.findChild(QFrame, "ZAxisSelector")
-        self.ZAxis: QComboBox = self.findChild(QComboBox, "ZAxis")
+        self.XAxisComboContainer: QFrame = self.findChild(QFrame, "XAxisComboContainer")
+        self.XAxis = MultiSelectWidget(self.XAxisComboContainer, single_selection=True, scroll_height=50)
+        self.XAxisComboContainer.layout().addWidget(self.XAxis)
 
-        self.GraphType: QComboBox = self.findChild(QComboBox, "GraphType")
-        self.GraphType.currentTextChanged.connect(
-            lambda text: self.ZAxisSelector.show() if text == "3D Graph" else self.ZAxisSelector.hide())
-        self.GraphType.setCurrentText("2D Graph")
+        self.YAxisSelector: QFrame = self.findChild(QFrame, "YAxisSelector")
+        self.YAxisComboContainer: QFrame = self.findChild(QFrame, "YAxisComboContainer")
+        self.YAxis = MultiSelectWidget(self.YAxisComboContainer, single_selection=True, scroll_height=50)
+        self.YAxisComboContainer.layout().addWidget(self.YAxis)
+
+        self.ZAxisSelector: QFrame = self.findChild(QFrame, "ZAxisSelector")
+        self.ZAxisComboContainer: QFrame = self.findChild(QFrame, "ZAxisComboContainer")
+        self.ZAxis = MultiSelectWidget(self.ZAxisComboContainer, single_selection=True, scroll_height=50)
+        self.ZAxisComboContainer.layout().addWidget(self.ZAxis)
+
+        self.GraphTypeContainer: QFrame = self.findChild(QFrame, "GraphTypeContainer")
+        self.GraphType = MultiSelectWidget(self.GraphTypeContainer, ["2D Graph", "3D Graph"], single_selection=True)
+
+        def graph_type_logic():
+            selected = self.GraphType.get_selected_display_text()
+            if selected == "3D Graph":
+                self.ZAxisSelector.setEnabled(True)
+            elif selected == "2D Graph":
+                self.ZAxisSelector.setEnabled(False)
+            else:
+                self.GraphType.set_selected_item("2D Graph")
+
+        self.GraphType.item_selection_changed.connect(graph_type_logic)
+        self.GraphType.set_selected_item("2D Graph")
+        self.GraphTypeContainer.layout().addWidget(self.GraphType)
 
         self.CreateGraphButton: QPushButton = self.findChild(QPushButton, "CreateNewGraph")
         self.CreateGraphButton.clicked.connect(self.create_graph)
@@ -131,16 +158,16 @@ class Grapher(Window):
             else:
                 fields.append(attr)
 
-        self.RecordedFields = MultiSelectComboBox(self.RecordedFieldsLabel)
+        self.RecordedFields = MultiSelectWidget()
         self.RecordedFieldsContainer.layout().addWidget(self.RecordedFields)
-        self.RecordedFields.on_item_select.connect(self.display_field_axes_options)
+        self.RecordedFields.item_selection_changed.connect(self.display_field_axes_options)
 
         self.recordable_fields = {}
 
         for field in fields:
             pretty_field = field.replace("_", " ").replace(".", " ").title()
             self.recordable_fields[pretty_field] = field
-            self.RecordedFields.addItem(pretty_field, userData=field)
+            self.RecordedFields.add_item(pretty_field, field)
 
         # eDNA Attributes
         self.eDNA_database = None
@@ -194,6 +221,316 @@ class Grapher(Window):
 
         self.VideoContainer.setScene(scene)
 
+        # Photosphere Attributes
+
+        self.PhotosphereOpenGLContainer: QFrame = self.findChild(QFrame, "PhotosphereOpenGLContainer")
+        self.photosphere_viewer = PhotosphereViewer()
+        self.PhotosphereOpenGLContainer.layout().addWidget(self.photosphere_viewer)
+        self.photosphere_viewer.set_image_path("panorama_test.jpg")
+
+        self.PhotosphereCameraSelectContainer: QFrame = self.findChild(QFrame, "PhotosphereCameraSelectContainer")
+
+        self.PhotosphereCameraSelect = MultiSelectWidget(self.PhotosphereCameraSelectContainer,
+                                                         single_selection=True,
+                                                         scroll_height=50)
+        self.PhotosphereCameraSelectContainer.layout().addWidget(self.PhotosphereCameraSelect)
+
+        self.PhotospherePicture: QPushButton = self.findChild(QPushButton, "PhotospherePicture")
+        self.PhotospherePicture.clicked.connect(self.take_picture)
+
+        self.chosen_photosphere_directory = Path(os.getcwd()) / "Photosphere_Image_Data"
+
+        if not self.chosen_photosphere_directory.exists():
+            self.chosen_photosphere_directory.mkdir()
+
+        self.PhotospherePictureDirectoryButton: QPushButton = self.findChild(QPushButton,
+                                                                             "PhotospherePictureDirectoryButton")
+        self.PhotospherePictureDirectoryButton.clicked.connect(self.change_photosphere_directory)
+
+        self.PhotospherePictureDirectory: QLabel = self.findChild(QLabel, "PhotospherePictureDirectory")
+        self.PhotospherePictureDirectory.setText(str(self.chosen_photosphere_directory))
+
+        self.CreatePhotosphereButton: QPushButton = self.findChild(QPushButton, "CreatePhotosphereButton")
+        self.CreatePhotosphereButton.clicked.connect(self.on_create_photosphere_clicked)
+
+        self.PhotosphereCreationProgress: QProgressBar = self.findChild(QProgressBar, "PhotosphereCreationProgress")
+
+        self.photosphere_creation_progress_update.connect(lambda value: self.PhotosphereCreationProgress.setValue(value))
+
+        self.ResetPhotosphere: QPushButton = self.findChild(QPushButton, "ResetPhotosphere")
+        self.ResetPhotosphere.clicked.connect(lambda: self.photosphere_viewer.reset_rotation())
+
+        self.LoadPhotosphere: QPushButton = self.findChild(QPushButton, "LoadPhotosphere")
+        self.LoadPhotosphere.clicked.connect(self.load_photosphere)
+
+        self.photosphere_creation_complete.connect(self.photosphere_viewer.set_image_path)
+
+    def load_photosphere(self):
+        file, fltr = QFileDialog.getOpenFileName(
+            self,
+            "Select File for Photosphere Data",
+            str(self.chosen_photosphere_directory),  # Start in current directory
+            filter="Images (*.jpg *.jpeg *.JPG *.JPEG)"
+        )
+
+        self.photosphere_viewer.set_image_path(file)
+
+    def change_photosphere_directory(self):
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Directory for Photosphere Data",
+            str(self.chosen_photosphere_directory),  # Start in current directory
+            QFileDialog.Option.ShowDirsOnly
+        )
+
+        if directory:  # If user didn't cancel
+            print("Selected photosphere directory:", directory)
+            self.chosen_photosphere_directory = Path(directory)
+        self.PhotospherePictureDirectory.setText(str(self.chosen_photosphere_directory))
+
+    def take_picture(self):
+        frame_index = self.PhotosphereCameraSelect.get_selected_item()
+
+        if frame_index is None:
+            print("Couldn't take picture - frame index was None", file=sys.stderr)
+            return
+
+        with self.data.camera_frames[frame_index].lock:
+            frame = self.data.camera_frames[frame_index].frame
+            if frame is None:
+                print("Couldn't take picture - camera is disconnected. Try a different camera...", file=sys.stderr)
+                return
+            timestamp = datetime.now().isoformat(timespec="milliseconds").replace(":", "-").replace(".", "-")
+            if not frame.save(str(self.chosen_photosphere_directory / f"{timestamp}.jpg")):
+                print("Failed to save picture")
+                return
+        with open(str(self.chosen_photosphere_directory / f"{timestamp}.rov_data"), "wb") as f:
+            pickle.dump(self.data.export_rov_data(), f)
+        print("Picture taken!")
+
+    @staticmethod
+    def warp_to_equirectangular(img, f, yaw, pitch, roll, canvas_width, canvas_height):
+        """
+        Warps a single image onto an equirectangular (spherical) canvas
+        using the provided IMU data (yaw, pitch, roll).
+
+        Parameters:
+          img          : Input image (numpy array)
+          f            : Focal length in pixels.
+          yaw, pitch, roll : IMU angles in radians.
+          canvas_width : Width of the output panorama.
+          canvas_height: Height of the output panorama.
+
+        Returns:
+          warped       : The warped image on the equirectangular canvas.
+        """
+        h, w = img.shape[:2]
+        cx, cy = w / 2.0, h / 2.0
+
+        # Create a meshgrid for the source image.
+        X, Y = np.meshgrid(np.arange(w), np.arange(h))
+        Xn = X - cx
+        Yn = Y - cy
+        Z = np.full_like(Xn, f, dtype=np.float32)
+        # Build the 3D direction vectors for each pixel.
+        d = np.stack((Xn, Yn, Z), axis=-1).astype(np.float32)
+
+        # Build rotation matrices for yaw, pitch, and roll.
+        cyaw, syaw = math.cos(yaw), math.sin(yaw)
+        cpitch, spitch = math.cos(pitch), math.sin(pitch)
+        croll, sroll = math.cos(roll), math.sin(roll)
+
+        # Yaw rotation about Y axis.
+        R_yaw = np.array([[cyaw, 0, syaw],
+                          [0, 1, 0],
+                          [-syaw, 0, cyaw]], dtype=np.float32)
+        # Pitch rotation about X axis.
+        R_pitch = np.array([[1, 0, 0],
+                            [0, cpitch, -spitch],
+                            [0, spitch, cpitch]], dtype=np.float32)
+        # Roll rotation about Z axis.
+        R_roll = np.array([[croll, -sroll, 0],
+                           [sroll, croll, 0],
+                           [0, 0, 1]], dtype=np.float32)
+        # Combined rotation matrix.
+        R = R_yaw @ R_pitch @ R_roll
+
+        # Rotate each direction vector.
+        d_reshaped = d.reshape(-1, 3).T  # Shape: (3, N)
+        d_rot = R @ d_reshaped
+        d_rot = d_rot.T.reshape(h, w, 3)
+
+        # Normalize the rotated vectors.
+        norm = np.linalg.norm(d_rot, axis=2, keepdims=True)
+        d_norm = d_rot / norm
+
+        # Convert normalized vectors to spherical coordinates.
+        # Longitude: arctan2(x, z); Latitude: arcsin(y)
+        longitude = np.arctan2(d_norm[..., 0], d_norm[..., 2])
+        latitude = np.arcsin(d_norm[..., 1])
+
+        # Map spherical coordinates to canvas coordinates.
+        x_canvas = ((longitude + math.pi) / (2 * math.pi)) * canvas_width
+        y_canvas = ((math.pi / 2 - latitude) / math.pi) * canvas_height
+
+        # Initialize the output warped image and a weight map for blending.
+        warped = np.zeros((canvas_height, canvas_width, 3), dtype=np.float32)
+        weight = np.zeros((canvas_height, canvas_width, 3), dtype=np.float32)
+
+        # Round canvas coordinates to integer indices.
+        x_canvas_int = np.round(x_canvas).astype(np.int32)
+        y_canvas_int = np.round(y_canvas).astype(np.int32)
+
+        # Only consider valid indices.
+        valid = (x_canvas_int >= 0) & (x_canvas_int < canvas_width) & \
+                (y_canvas_int >= 0) & (y_canvas_int < canvas_height)
+
+        # splat each pixel's color into the panorama.
+        for channel in range(3):
+            np.add.at(warped[..., channel],
+                      (y_canvas_int[valid], x_canvas_int[valid]),
+                      img[..., channel][valid])
+            np.add.at(weight[..., channel],
+                      (y_canvas_int[valid], x_canvas_int[valid]),
+                      1.0)
+
+        # normalize where the image was splatted.
+        weight[weight == 0] = 1.0
+        warped /= weight
+        warped = np.clip(warped, 0, 255).astype(np.uint8)
+        return warped
+
+    @staticmethod
+    def composite_images(warped_images):
+        """
+        Combines a list of warped images into one final panorama using per-pixel averaging.
+        """
+        composite = np.zeros_like(warped_images[0], dtype=np.float32)
+        weight = np.zeros_like(warped_images[0], dtype=np.float32)
+
+        for img in warped_images:
+            mask = (img.sum(axis=2) > 0)[:, :, None].astype(np.float32)
+            composite += img.astype(np.float32) * mask
+            weight += mask
+
+        weight[weight == 0] = 1.0
+        composite /= weight
+        composite = np.clip(composite, 0, 255).astype(np.uint8)
+        return composite
+
+    def attach_data_interface(self) -> None:
+        super().attach_data_interface()
+        self.PhotosphereCameraSelectContainer: QFrame = self.findChild(QFrame)
+
+        for i in range(len(self.data.camera_frames)):
+            self.PhotosphereCameraSelect.add_item(f"Camera {i + 1}", i)
+
+        if len(self.data.camera_frames) > 1:
+            self.PhotosphereCameraSelect.set_selected_item("Camera 1")
+
+        if len(self.data.camera_frames) > 0:
+            self.PhotosphereCameraSelect.item_selection_changed.connect(
+                lambda: self.PhotosphereCameraSelect.set_selected_item("Camera 1")
+                if self.PhotosphereCameraSelect.get_selected_item() is None else None)
+
+    def create_photosphere(self, file_dir, canvas_height, canvas_width):
+        image_paths = os.listdir(self.chosen_photosphere_directory)
+        images = []
+        rov_data: [ROVData] = []
+        image_names = []
+
+        progress = 0
+        for path in image_paths:
+            self.photosphere_creation_progress_update.emit(progress)
+            progress += 30 // len(image_paths)
+            path = self.chosen_photosphere_directory / Path(path)
+            if path.is_dir() or not path.name.endswith(".jpg"):
+                continue
+
+            timestamp = ".".join(path.name.split(".")[:-1])
+
+            img = cv2.imread(str(path))
+            if img is None:
+                print(f"Failed to read {path}", file=sys.stderr)
+                continue
+
+            try:
+                with open(path.parent / f"{timestamp}.rov_data", "rb") as f:
+                    data = pickle.load(f)
+                rov_data.append(data)
+            except (FileNotFoundError, OSError):
+                print(f"Could not access {path.parent / f'{timestamp}.rov_data'}", file=sys.stderr)
+                continue
+
+            image_names.append(timestamp)
+            images.append(img)
+
+        # warp each image based on its IMU data
+        warped_images = []
+        for i, img in enumerate(images):
+            self.photosphere_creation_progress_update.emit(progress)
+            progress += 45 // len(images)
+            pitch = math.radians(rov_data[i].attitude.x)
+            yaw = math.radians(rov_data[i].attitude.y)
+            roll = math.radians(rov_data[i].attitude.z)
+
+            print("~~~~~~~~~")
+            print(image_names[i])
+            print(f"{pitch=}")
+            print(f"{yaw=}")
+            print(f"{roll=}")
+
+            image_height, image_width = img.shape[:2]
+
+            focal_length = image_width / (2 * math.pi)
+
+            warped = self.warp_to_equirectangular(
+                img,
+                focal_length,
+                yaw,
+                pitch,
+                roll,
+                canvas_width,
+                canvas_height
+            )
+            warped_images.append(warped)
+
+        panorama = self.composite_images(warped_images)
+
+        self.photosphere_creation_progress_update.emit(95)
+
+        cv2.imwrite(str(file_dir), panorama)
+        print(f"Panorama saved as {file_dir.name}")
+
+        self.photosphere_creation_progress_update.emit(100)
+
+        return str(file_dir)
+
+    def on_create_photosphere_clicked(self):
+        filename, ok = QInputDialog.getText(self, "Photosphere Filename", "Enter a filename for the photosphere: ")
+        if not ok:
+            return
+
+        file_dir = self.chosen_photosphere_directory / f"{filename}.jpg"
+
+        if file_dir.exists():
+            response = QMessageBox.warning(None,
+                                           "File Exists",
+                                           f"A photosphere called {filename} already exists. "
+                                           f"Would you like to overwrite it?",
+                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                           QMessageBox.StandardButton.No
+                                           )
+            if response == QMessageBox.StandardButton.No:
+                return
+
+        task = GraphingTask(
+            lambda: self.create_photosphere(file_dir, 1024, 2048),
+            lambda file_dir: self.photosphere_creation_complete.emit(file_dir) if type(file_dir) is str else None
+        )
+
+        QThreadPool.globalInstance().start(task)
+
     def attach_nav_bar(self, dock) -> None:
         tab_bar = self.tab_widget.tabBar()
         width = 0
@@ -203,10 +540,9 @@ class Grapher(Window):
         self.nav.generate_layout()
 
     def on_recording_directory_changed(self):
-        while self.InputRecording.count() > 0:
-            self.InputRecording.removeItem(0)
+        self.InputRecording.clear_all_items()
         for file in os.listdir(self.recordings_path):
-            self.InputRecording.addItem(file)
+            self.InputRecording.add_item(file)
 
     def record_fields(self):
         new_row = [time.time()]
@@ -232,52 +568,52 @@ class Grapher(Window):
         self.recording_update.emit()
 
     def display_field_axes_options(self):
-        x_axis_choice = self.XAxis.currentText()
-        y_axis_choice = self.YAxis.currentText()
-        z_axis_choice = self.ZAxis.currentText()
+        x_axis_choice = self.XAxis.get_selected_display_text()
+        y_axis_choice = self.YAxis.get_selected_display_text()
+        z_axis_choice = self.ZAxis.get_selected_display_text()
 
-        while self.XAxis.count() > 0:
-            self.XAxis.removeItem(0)
+        self.XAxis.clear_all_items()
+        self.YAxis.clear_all_items()
+        self.ZAxis.clear_all_items()
 
-        while self.YAxis.count() > 0:
-            self.YAxis.removeItem(0)
-
-        while self.ZAxis.count() > 0:
-            self.ZAxis.removeItem(0)
-
-        if self.InputRecording.currentText() == "":
-            return
         if self.LiveGraph.isChecked() and self.is_recording:
             fields = ["Time"] + self.fields_to_record
         else:
-            selected_file = self.recordings_path / self.InputRecording.currentText()
+            selected = self.InputRecording.get_selected_item()
+            if selected is None:
+                return
+
+            selected_file = self.recordings_path / selected
             if selected_file == "":
                 return
             try:
                 df = pd.read_csv(selected_file)
                 fields = list(df.columns)
             except Exception as e:
-                print(e, file=sys.stderr)
+                print("Couldn't read CSV file:", e, file=sys.stderr)
                 return
 
         for field in fields:
-            self.XAxis.addItem(field)
+            self.XAxis.add_item(field)
+
         if x_axis_choice in fields:
-            self.XAxis.setCurrentText(x_axis_choice)
+            self.XAxis.set_selected_item(x_axis_choice)
 
         for field in fields:
-            self.YAxis.addItem(field)
+            self.YAxis.add_item(field)
+
         if y_axis_choice in fields:
-            self.YAxis.setCurrentText(y_axis_choice)
+            self.YAxis.set_selected_item(y_axis_choice)
 
         for field in fields:
-            self.ZAxis.addItem(field)
+            self.ZAxis.add_item(field)
+
         if z_axis_choice in fields:
-            self.ZAxis.setCurrentText(z_axis_choice)
+            self.ZAxis.set_selected_item(z_axis_choice)
 
     def toggle_recording(self):
         if not self.is_recording:
-            selected_fields = self.RecordedFields.get_selected()
+            selected_fields = self.RecordedFields.get_selected_display_texts()
             if len(selected_fields) == 0:
                 QMessageBox.warning(self, "No Field Selected", f"Please select at least one field to record")
                 return
@@ -310,7 +646,7 @@ class Grapher(Window):
                 return
 
             self.StartRecordingButton.setText("Stop Recording")
-            self.RecordedFields.hide()
+            self.RecordedFields.set_checkboxes_enabled(False)
             self.recording_timer.start(100)
             self.is_recording = True
             self.LiveGraph.setEnabled(True)
@@ -319,7 +655,7 @@ class Grapher(Window):
             self.display_field_axes_options()
         else:
             self.StartRecordingButton.setText("Start Recording")
-            self.RecordedFields.show()
+            self.RecordedFields.set_checkboxes_enabled(True)
             self.recording_timer.stop()
             self.is_recording = False
             self.LiveGraph.setEnabled(False)
@@ -327,9 +663,9 @@ class Grapher(Window):
             self.recording_end.emit()
 
     def create_graph(self):
-        axes = [self.XAxis.currentText(), self.YAxis.currentText()]
-        if self.GraphType.currentText() == "3D Graph":
-            axes.append(self.ZAxis.currentText())
+        axes = [self.XAxis.get_selected_display_text(), self.YAxis.get_selected_display_text()]
+        if self.GraphType.get_selected_display_text() == "3D Graph":
+            axes.append(self.ZAxis.get_selected_display_text())
         if any([axis == "" for axis in axes]):
             QMessageBox.warning(None, "Empty Axis", "Please set fields for each axis for the graph")
             return
@@ -339,18 +675,19 @@ class Grapher(Window):
             return
 
         if self.LiveGraph.isChecked():
-            graph_widget = GraphWidget(self.recording_dataframe, axes, self.GraphType.currentText() == "3D Graph",
+            graph_widget = GraphWidget(self.recording_dataframe, axes,
+                                       self.GraphType.get_selected_display_text() == "3D Graph",
                                        True, title,
                                        recording_update_signal=self.recording_update,
                                        recording_end_signal=self.recording_end)
         else:
-            df_file = self.InputRecording.currentText()
+            df_file = self.InputRecording.get_selected_item()
             if df_file == "":
                 QMessageBox.warning(None, "No Chosen Recording", "Please select a recording to graph")
                 return
 
             df = pd.read_csv(self.recordings_path / df_file)
-            graph_widget = GraphWidget(df, axes, self.GraphType.currentText() == "3D Graph", False, title)
+            graph_widget = GraphWidget(df, axes, self.GraphType.get_selected_display_text() == "3D Graph", False, title)
 
         if not graph_widget.build_success:
             return
@@ -477,93 +814,6 @@ class Grapher(Window):
         self.VideoContainer.fitInView(self.migration_video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
         self.migration_media_player.play()
-
-    def on_velocity_dropdown_clicked(self):
-        '''Toggle visibility of velocity checkboxes when vel button pressed'''
-        visible = not self.velocityX.isVisible()
-        for attr in ["velocityX", "velocityY", "velocityZ"]:
-            checkbox = getattr(self, attr, None)
-            if checkbox:
-                checkbox.setVisible(visible)
-
-    def on_acceleration_dropdown_clicked(self):
-        '''Toggle visibility of accel checkboxes when acceleration button pressed'''
-        visible = not self.accelerationX.isVisible()
-        for attr in ["accelerationX", "accelerationY", "accelerationZ"]:
-            checkbox = getattr(self, attr, None)
-            if checkbox:
-                checkbox.setVisible(visible)
-
-    def on_velocity_clicked(self):
-        """Generate velocity plot."""  # for now showing acceleration as placeholder, just integrate data in graphGen for v
-        packet_number, accel_x, accel_y, accel_z = self.graph_generator.read_data()
-
-        # Checking which velocity axes are to be used
-        x = accel_x if getattr(self, "velocityX", None) and self.velocityX.isChecked() else None
-        y = accel_y if getattr(self, "velocityY", None) and self.velocityY.isChecked() else None
-        z = accel_z if getattr(self, "velocityZ", None) and self.velocityZ.isChecked() else None
-
-        if x is None and y is None and z is None:
-            print("Error: No velocity components selected!")
-            return
-
-        print(f"Selected Data for Plotting: X={x}, Y={y}, Z={z}")
-
-        # Generating graph
-        self.graph_generator.generate_acceleration(self.graphArea, packet_number, x, y, z, save_path="velocity.png")
-        self.update_button_icon("velocityButton", "velocity.png")
-        self.add_toolbar(self.graph_generator.canvas)
-
-    def on_acceleration_clicked(self):
-        """Generate acceleration plot."""
-        packet_number, accel_x, accel_y, accel_z = self.graph_generator.read_data()
-
-        # Checking which acceleration axes are to be used
-        x = accel_x if getattr(self, "accelerationX", None) and self.accelerationX.isChecked() else None
-        y = accel_y if getattr(self, "accelerationY", None) and self.accelerationY.isChecked() else None
-        z = accel_z if getattr(self, "accelerationZ", None) and self.accelerationZ.isChecked() else None
-
-        if x is None and y is None and z is None:
-            print("Error: No velocity components selected!")
-            return
-
-        print(f"Selected Data for Plotting: X={x}, Y={y}, Z={z}")
-
-        # graphing
-        self.graph_generator.generate_acceleration(self.graphArea, packet_number, x, y, z, save_path="acceleration.png")
-        self.update_button_icon("accelerationButton", "acceleration.png")
-        self.add_toolbar(self.graph_generator.canvas)
-
-    def on_depth_clicked(self):
-        """Generate depth plot."""
-        try:  # It kept crashing, so I added this. It's working now
-            print("Depth button clicked.")
-
-            # Read data from the same function as before
-            packet_number, accel_x, accel_y, accel_z = self.graph_generator.read_data()
-
-            # Packet number is valid?
-            if packet_number is None:
-                print("Error: No packet number data available!")
-                return  # Prevents crash
-
-            print(f"Selected Data for Plotting: Packet Number={packet_number[:10]}")  # Debug first 10 values
-
-            # Generate and display the depth graph (Fix function name to match the new version)
-            print("Generating depth graph now...")
-            self.graph_generator.generate_depth_plot(self.graphArea, packet_number, accel_x, accel_y, accel_z,
-                                                     save_path="depth.png")
-
-            print("Updating button icon and toolbar...")
-            self.update_button_icon(self.depthButton, "depth.png")
-            self.add_toolbar(self.graph_generator.canvas)
-
-            print("Depth graph successfully displayed.")
-
-        except Exception as e:
-            print(f"Unhandled Error in on_depth_clicked: {str(e)}")
-            import traceback
-            traceback.print_exc()
 
     def on_eDNA_clicked(self):
         if self.unknown_sample_folder is None or self.eDNA_database is None:

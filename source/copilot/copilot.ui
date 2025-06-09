@@ -818,6 +818,37 @@
             </property>
            </widget>
           </item>
+          <item row="8" column="1">
+           <widget class="QLabel" name="AmbientPressureValue">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>135</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16772215</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="baseSize">
+             <size>
+              <width>135</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
+          </item>
           <item row="9" column="0">
            <widget class="QLabel" name="AmbientWaterTemp">
             <property name="text">
@@ -825,10 +856,72 @@
             </property>
            </widget>
           </item>
+          <item row="9" column="1">
+           <widget class="QLabel" name="AmbientWaterTempValue">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>135</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16772215</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="baseSize">
+             <size>
+              <width>135</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
+          </item>
           <item row="10" column="0">
            <widget class="QLabel" name="InternalTemp">
             <property name="text">
              <string>Internal Temperature</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="1">
+           <widget class="QLabel" name="InternalTempValue">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>135</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16772215</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="baseSize">
+             <size>
+              <width>135</width>
+              <height>20</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>0</string>
             </property>
            </widget>
           </item>
@@ -1128,96 +1221,60 @@
             </property>
            </widget>
           </item>
-          <item row="10" column="1">
-           <widget class="QLabel" name="InternalTempValue">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>135</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16772215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="baseSize">
-             <size>
-              <width>135</width>
-              <height>20</height>
-             </size>
+          <item row="20" column="0" colspan="2">
+           <widget class="QLabel" name="label">
+            <property name="font">
+             <font>
+              <pointsize>16</pointsize>
+             </font>
             </property>
             <property name="text">
-             <string>0</string>
+             <string>ROV Socket Status</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
-          <item row="9" column="1">
-           <widget class="QLabel" name="AmbientWaterTempValue">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>135</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16772215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="baseSize">
-             <size>
-              <width>135</width>
-              <height>20</height>
-             </size>
-            </property>
+          <item row="21" column="0">
+           <widget class="QLabel" name="label_2">
             <property name="text">
-             <string>0</string>
+             <string>Data Socket Status</string>
             </property>
            </widget>
           </item>
-          <item row="8" column="1">
-           <widget class="QLabel" name="AmbientPressureValue">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>135</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16772215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="baseSize">
-             <size>
-              <width>135</width>
-              <height>20</height>
-             </size>
-            </property>
+          <item row="21" column="1">
+           <widget class="QLabel" name="DataSocketStatus">
             <property name="text">
-             <string>0</string>
+             <string>Disconnected</string>
+            </property>
+           </widget>
+          </item>
+          <item row="22" column="0">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>Stdout Socket Status</string>
+            </property>
+           </widget>
+          </item>
+          <item row="22" column="1">
+           <widget class="QLabel" name="StdoutSocketStatus">
+            <property name="text">
+             <string>Disconnected</string>
+            </property>
+           </widget>
+          </item>
+          <item row="23" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Control Socket Status</string>
+            </property>
+           </widget>
+          </item>
+          <item row="23" column="1">
+           <widget class="QLabel" name="ControlSocketStatus">
+            <property name="text">
+             <string>Disconnected</string>
             </property>
            </widget>
           </item>

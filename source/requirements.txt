@@ -7,3 +7,6 @@ pytesseract>=0.3.13
 Pillow>=10.0.1
 PyQt6>=6.9.0
 av>=14.3.0
+PyOpenGL>=3.1.9
+PyOpenGL_accelerate>=3.1.9
+pillow pillow-heif>=0.22.0

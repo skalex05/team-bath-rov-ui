@@ -5,7 +5,7 @@ from PyQt6.QtGui import QImage
 
 
 # A simple class that allows frame data to be locked to a single process
-# A new frame is ready why the new_frame signal is raised
+# A new frame is ready when the new_frame signal is raised
 class VideoFrame(QObject):
     new_frame = pyqtSignal()
 

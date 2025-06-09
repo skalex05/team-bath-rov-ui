@@ -1,14 +1,26 @@
 import time
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
 from threading import Thread
 import av
+import json
+import sys
 from numpy import ndarray
 
 if TYPE_CHECKING:
     from app import App
+
+try:
+    with open("feed_config.json") as f:
+        cam_config = json.load(f)
+except FileNotFoundError:
+    print("Could not find feed_config.json")
+    exit(1)
+except json.decoder.JSONDecodeError:
+    print("Malformed feed_config.json file", file=sys.stderr)
+    exit(1)
 
 
 # A new class for the new, improved and simplified camera system!
@@ -17,7 +29,7 @@ class VideoRecv(QObject):
     on_connect = pyqtSignal()
     on_disconnect = pyqtSignal()
 
-    def __init__(self, app: "App", addr: str, port: int):
+    def __init__(self, app: "App", addr: str, port: int, i: int):
         print(f"Creating a Camera Receiver: {addr=} {port=}")
 
         super().__init__()
@@ -27,7 +39,9 @@ class VideoRecv(QObject):
                 time.sleep(0)
                 connected = False
                 try:
-                    with av.open(f"udp://{addr}:{port}?timeout=1000&buffer_size=65536", timeout=1) as container:
+                    with av.open(f"udp://{addr}:{port}?timeout=5000&buffer_size=2097152",
+                                 format="mpegts",
+                                 timeout=10) as container:
                         if app.closing:
                             continue
                         for frame in container.decode(video=0):
@@ -43,6 +57,9 @@ class VideoRecv(QObject):
                             self.on_recv.emit(frame)
                 except (OSError, av.ExitError) as e:
                     time.sleep(0.5)
+                except av.InvalidDataError as e:
+                    print("Invalid Data Error:", e, file=sys.stderr)
+                    time.sleep(1)
                 if connected:
                     self.on_disconnect.emit()
 
